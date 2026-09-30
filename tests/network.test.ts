@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import { after, before, test, mock } from 'node:test'
+
+// 本套件会连续发起大量请求以覆盖各种分支；关闭限流以免触发 429。
+// 必须在导入路由模块之前设置，限流器在构造时读取该变量。
+process.env.WHOIS_RATE_LIMIT = '0'
+
 import { NextRequest } from 'next/server'
 import { GET, POST } from '../src/app/api/whois/route'
 import { detectQueryType, normalizeIP, normalizeASN, parseIP } from '../src/lib/query-utils'

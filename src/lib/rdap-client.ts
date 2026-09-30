@@ -4,6 +4,8 @@
  * RDAP是WHOIS的现代化替代方案，提供JSON格式的结构化数据
  */
 
+import { assertSafeOutboundUrl, isSafeOutboundUrl } from './net-guard'
+
 export interface RDAPResponse {
   objectClassName: string;
   handle?: string;
@@ -111,6 +113,7 @@ const RDAP_SERVERS = {
 
 // Prefer IANA; verified static endpoints also cover registries not in bootstrap.
 const BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json';
+
 let dynamicRdapMap: Record<string, string[]> | null = null;
 let lastBootstrapFetch = 0;
 let bootstrapRequest: Promise<void> | null = null;
@@ -142,10 +145,12 @@ async function ensureBootstrapLoaded(): Promise<void> {
 }
 
 async function fetchJson(url: string, accept = 'application/rdap+json') {
+  // 所有出站请求统一校验：防止被上游响应中的链接引向内网地址
+  const safeUrl = assertSafeOutboundUrl(url).href;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(url, {
+    const response = await fetch(safeUrl, {
       headers: { Accept: accept, 'User-Agent': 'WHOIS-Tool/1.0' },
       signal: controller.signal,
     });
@@ -215,7 +220,8 @@ async function getRDAPServersAsync(domain: string): Promise<string[]> {
   const dynamic = dynamicRdapMap ? dynamicRdapMap[tld] : undefined;
   const staticBase = RDAP_SERVERS[tld as keyof typeof RDAP_SERVERS] || null;
   const servers = dynamic?.length ? dynamic : (staticBase ? [staticBase] : []);
-  return servers;
+  // bootstrap 内容来自外部数据源，构造请求前先剔除不安全的地址
+  return servers.filter(base => isSafeOutboundUrl(base));
 }
 
 /**

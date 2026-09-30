@@ -45,6 +45,69 @@ export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
     if (defaultValue !== undefined) setQuery(defaultValue)
   }, [defaultValue])
 
+  /**
+   * 打开页面即可直接输入：自动聚焦搜索框。
+   * 桌面端（有精确指针）且未显式要求聚焦时也执行，以对齐 who.cx 的便携性；
+   * 但若用户已开始滚动、或设备为触屏（避免弹出软键盘遮挡内容）则跳过。
+   */
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+
+    const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // 触屏设备自动弹键盘会遮挡页面，仅在桌面端自动聚焦
+    if (!finePointer) return
+    // 用户已经交互过（例如从别的元素切走焦点）就不要抢
+    if (document.activeElement && document.activeElement !== document.body) return
+
+    const focus = () => {
+      el.focus({ preventScroll: true })
+      // 光标置于末尾，便于直接续输
+      const len = el.value.length
+      try { el.setSelectionRange(len, len) } catch {}
+    }
+
+    // 等首屏过渡动画稳定后再聚焦，避免与入场动画竞争造成视觉抖动
+    const delay = reduceMotion ? 0 : 120
+    const timer = window.setTimeout(focus, delay)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  /** 全局快捷键：按 / 或任意可打印字符直接开始输入 */
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const el = inputRef.current
+      if (!el) return
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      // 输入框中或已在其他可编辑元素内时不拦截
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+
+      if (event.key === '/') {
+        event.preventDefault()
+        el.focus({ preventScroll: true })
+        return
+      }
+      // 可打印单字符直接进入输入框，实现「打开即输入」
+      if (event.key.length === 1 && /\S/.test(event.key)) {
+        event.preventDefault()
+        el.focus({ preventScroll: true })
+        // 把该字符作为首字符写入
+        setQuery(previous => {
+          const next = previous + event.key
+          requestAnimationFrame(() => {
+            try { el.setSelectionRange(next.length, next.length) } catch {}
+          })
+          return next
+        })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   const handleInputChange = (value: string) => {
     setQuery(value)
   }
@@ -157,7 +220,7 @@ export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
         </div>
       </form>
 
-      {/* 示例 chips */}
+      {/* 示例 chips 与快捷键提示 */}
       <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5 text-xs text-muted-foreground">
         <span className="font-medium">试试</span>
         {["baidu.com", "8.8.8.8", "AS15169"].map((example) => (
@@ -170,6 +233,12 @@ export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
             {example}
           </button>
         ))}
+        <span className="ml-1 hidden items-center gap-1.5 sm:inline-flex">
+          <span className="text-muted-foreground/50">·</span>
+          <span>按</span>
+          <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">/</kbd>
+          <span>直接输入</span>
+        </span>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { tcpWhoisQuery } from './whois-client'
+import { assertSafeOutboundUrl } from './net-guard'
 import { ipRange, parseIP } from './query-utils'
 import { NetworkQueryError, parseNetworkRDAP, parseNetworkWhois } from './network-parser'
 
@@ -17,10 +18,9 @@ const bootstrapCache = new Map<string, { services: Bootstrap; expires: number }>
 const pending = new Map<string, Promise<Bootstrap>>()
 
 function safeRDAP(url: string) {
-  const parsed = new URL(url)
-  if (parsed.protocol !== 'https:' || !registries[parsed.hostname] || parsed.username || parsed.password || parsed.port) {
-    throw new NetworkQueryError('无效的 RDAP 服务地址')
-  }
+  // 统一走公共校验：仅 https、拒绝内网与保留地址、主机须在已核实的注册机构列表内
+  const parsed = assertSafeOutboundUrl(url, Object.keys(registries))
+  if (parsed.port) throw new NetworkQueryError('无效的 RDAP 服务地址')
   return parsed
 }
 

@@ -7,8 +7,36 @@ import { queryDomainWhois } from '@/lib/whois-client'
 import { detectQueryType, normalizeASN, normalizeIP } from '@/lib/query-utils'
 import { queryNetworkRDAP, queryNetworkWhois } from '@/lib/network-client'
 import { NetworkQueryError } from '@/lib/network-parser'
+import { apiRateLimiter, clientKey } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
+
+/**
+ * 限流：本站每次查询都会真实外连 IANA 与各国注册局，
+ * 若不限流则可能被当作免费代理滥用，导致出口 IP 被上游封禁。
+ * 返回非 null 时应直接作为响应返回。
+ */
+function enforceRateLimit(request: NextRequest): NextResponse | null {
+  const result = apiRateLimiter.check(clientKey(request))
+  if (result.ok) return null
+  return NextResponse.json(
+    {
+      success: false,
+      error: `请求过于频繁，请在 ${result.retryAfter} 秒后重试。`,
+      data: null,
+      query: '',
+      type: 'unknown',
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(result.retryAfter),
+        'X-RateLimit-Limit': String(result.limit),
+        'X-RateLimit-Remaining': '0',
+      },
+    }
+  )
+}
 
 const cache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_TTL = 5 * 60 * 1000
@@ -121,6 +149,8 @@ async function handleQuery(body: unknown) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request)
+  if (limited) return limited
   let body: unknown
   try { body = await request.json() } catch {
     return NextResponse.json({ success: false, error: '请求体不是有效的 JSON', data: null }, { status: 400 })
@@ -129,6 +159,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = enforceRateLimit(request)
+  if (limited) return limited
   const { searchParams } = new URL(request.url)
   return handleQuery({
     query: searchParams.get('q'),
