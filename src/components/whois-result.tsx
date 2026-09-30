@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ExportCard, EXPORT_CARD_WIDTH, type ExportCardData } from "@/components/export-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Copy, Globe, Server, ChevronDown, ChevronUp, Check, ShieldCheck, Calendar, User, Mail, Phone, MapPin, Download, AlertTriangle, CircleCheck, ExternalLink, ImageDown, Loader2 } from "lucide-react"
+import { Copy, Globe, Server, ChevronDown, ChevronUp, Check, ShieldCheck, User, Mail, Phone, MapPin, Download, AlertTriangle, CircleCheck, ExternalLink, ImageDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { csvContent, downloadBlob, exportBasename, exportResultImage } from "@/lib/export-utils"
 
@@ -298,6 +298,25 @@ export function WhoisResult({ data }: WhoisResultProps) {
     }
   })()
 
+  /**
+   * 顶部摘要卡中的注册人一行。
+   * 优先机构，其次姓名；若与注册商完全同名则不再重复展示。
+   * 隐私占位符（如 REDACTED FOR PRIVACY）在此同样视为无信息。
+   */
+  const registrantSummary = (() => {
+    const placeholder = /(redact|not\s+disclosed|privacy\s+protect|withheld|no\s+disclosure|unknown|n\/a|^none$|^-+$)/i
+    const val = (v: unknown) => {
+      const text = formatDisplayValue(v)
+      if (!text || text === '未知' || placeholder.test(text)) return ''
+      return text
+    }
+    const org = val(normalized.registrant?.organization)
+    const name = val(normalized.registrant?.name)
+    const chosen = org || name || val(normalized.registrant?.email)
+    const registrarName = isNetwork ? parsed?.network_name : normalized.registrar
+    return chosen && chosen !== registrarName ? chosen : ''
+  })()
+  
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(raw)
@@ -593,104 +612,113 @@ export function WhoisResult({ data }: WhoisResultProps) {
     <div ref={resultRef} className="result-flow mx-auto w-full max-w-5xl space-y-4 pb-12">
       
       {/* Header Section */}
-      <div className="quiet-surface flex flex-col justify-between gap-5 rounded-2xl p-5 md:flex-row md:items-end sm:p-7">
-        <div className="min-w-0">
-          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-            <CircleCheck className="size-4" strokeWidth={2} />
-            查询完成
-          </p>
-          <h1 className="break-all text-3xl font-semibold tracking-[-0.025em] text-foreground sm:text-4xl">
-            {queryTitle || normalized.domain || "查询结果"}
-          </h1>
-          <div className="mt-3.5 flex flex-wrap items-center gap-2">
-            {(isNetwork ? parsed?.network_name : normalized.registrar) && (
-              <Badge variant="secondary" className="max-w-full truncate font-normal">
-                {isNetwork ? parsed?.network_name : normalized.registrar}
-              </Badge>
-            )}
-            {sourceLabel && (
-              <Badge variant="outline" className="font-normal">
-                {sourceLabel}
-              </Badge>
-            )}
-            {daysRemaining !== null && (
-              <Badge variant="outline" className={cn(
-                "border-0 font-normal",
-                daysRemaining < 30
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-success/12 text-success"
-              )}>
-                {daysRemaining > 0 ? `剩余 ${daysRemaining} 天` : "已过期"}
-              </Badge>
-            )}
+      {/*
+        顶部摘要卡：一眼可见的关键信息。
+        主体（查询对象）与状态徽章一行，下方用紧凑的事实行概括
+        注册人、注册商、关键日期与到期状态，无需向下滚动即可掌握要点。
+        明细仍在下方「域名信息」等卡片中。
+      */}
+      <div className="quiet-surface rounded-2xl p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
+          <div className="min-w-0">
+            <p className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
+              <CircleCheck className="size-4" strokeWidth={2} />
+              查询完成
+            </p>
+            <h1 className="break-all text-3xl font-semibold tracking-[-0.025em] text-foreground sm:text-4xl">
+              {queryTitle || normalized.domain || "查询结果"}
+            </h1>
+            <div className="mt-3.5 flex flex-wrap items-center gap-2">
+              {sourceLabel && (
+                <Badge variant="outline" className="font-normal">
+                  {sourceLabel}
+                </Badge>
+              )}
+              {daysRemaining !== null && (
+                <Badge variant="outline" className={cn(
+                  "border-0 font-normal",
+                  daysRemaining < 30
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-success/12 text-success"
+                )}>
+                  {daysRemaining > 0 ? `剩余 ${daysRemaining} 天` : "已过期"}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div data-export-ignore className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+             <Button variant="outline" size="sm" onClick={handleImageExport} disabled={exportingImage}>
+               {exportingImage ? <Loader2 className="size-4 animate-spin" strokeWidth={2} /> : <ImageDown className="size-4" strokeWidth={2} />}
+               {exportingImage ? '正在生成图片' : '导出图片'}
+             </Button>
+             <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
+               <Download className="w-4 h-4" strokeWidth={2} />
+               JSON
+             </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+               <Download className="w-4 h-4" strokeWidth={2} />
+               CSV
+             </Button>
+             <Button variant="secondary" size="sm" onClick={handleCopy}>
+               {copied ? <Check className="w-4 h-4" strokeWidth={2} /> : <Copy className="w-4 h-4" strokeWidth={2} />}
+               {copied ? '已复制' : copyError ? '复制失败，请重试' : '复制'}
+             </Button>
           </div>
         </div>
-        
-        <div data-export-ignore className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-           <Button variant="outline" size="sm" onClick={handleImageExport} disabled={exportingImage}>
-             {exportingImage ? <Loader2 className="size-4 animate-spin" strokeWidth={2} /> : <ImageDown className="size-4" strokeWidth={2} />}
-             {exportingImage ? '正在生成图片' : '导出图片'}
-           </Button>
-           <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
-             <Download className="w-4 h-4" strokeWidth={2} />
-             JSON
-           </Button>
-            <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
-             <Download className="w-4 h-4" strokeWidth={2} />
-             CSV
-           </Button>
-           <Button variant="secondary" size="sm" onClick={handleCopy}>
-             {copied ? <Check className="w-4 h-4" strokeWidth={2} /> : <Copy className="w-4 h-4" strokeWidth={2} />}
-             {copied ? '已复制' : copyError ? '复制失败，请重试' : '复制'}
-           </Button>
+
+        {/* 关键事实行：注册人、注册商、注册与到期时间 */}
+        <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="min-w-0">
+            <p className="mb-1 text-xs text-muted-foreground">{isNetwork ? '资源持有人' : '注册人'}</p>
+            <p className="break-words text-sm font-medium leading-6">
+              {registrantSummary || <span className="font-normal text-muted-foreground">未提供</span>}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="mb-1 text-xs text-muted-foreground">{isNetwork ? '所属机构' : '注册商'}</p>
+            <p className="break-words text-sm font-medium leading-6">
+              {(isNetwork ? parsed?.network_name : normalized.registrar) || <span className="font-normal text-muted-foreground">未知</span>}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="mb-1 text-xs text-muted-foreground">注册时间</p>
+            <p className="font-mono text-sm font-medium leading-6">{formatDate(normalized.registrationDate)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="mb-1 text-xs text-muted-foreground">{isNetwork ? '最近更新' : '过期时间'}</p>
+            <p className="font-mono text-sm font-medium leading-6">
+              {formatDate(isNetwork ? normalized.updatedDate : normalized.expirationDate)}
+            </p>
+          </div>
+          {!isNetwork && (
+            <div className="min-w-0">
+              <p className="mb-1 text-xs text-muted-foreground">更新时间</p>
+              <div className="flex items-center gap-2">
+                <p className="font-mono text-sm font-medium leading-6">{formatDate(normalized.updatedDate)}</p>
+                {daysRemaining !== null && daysRemaining < 30 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <AlertTriangle className="w-4 h-4 text-warning" strokeWidth={2} />
+                      </TooltipTrigger>
+                      <TooltipContent>域名即将过期</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {exportError && <p data-export-ignore role="alert" className="text-sm text-destructive">{exportError}</p>}
 
       {/* Main Info Grid */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        
-        {/* Dates Card */}
-        <Card className="gap-0 py-0 lg:col-span-1">
-          <CardHeader className="border-b border-border px-5 py-4 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Calendar className="size-4 text-primary" strokeWidth={2} />
-              关键日期
-            </CardTitle>
-            <CardDescription>{isNetwork ? '网络资源登记时间' : '注册生命周期'}</CardDescription>
-          </CardHeader>
-          
-          <CardContent className="divide-y divide-border px-5 sm:px-5">
-            <div className="py-4">
-              <p className="mb-1.5 text-xs text-muted-foreground">注册时间</p>
-              <p className="font-mono text-sm font-medium">{formatDate(normalized.registrationDate)}</p>
-            </div>
-            {!isNetwork && <div className="py-4">
-              <p className="mb-1.5 text-xs text-muted-foreground">过期时间</p>
-              <div className="flex items-center gap-2">
-                 <p className="font-mono text-sm font-medium">{formatDate(normalized.expirationDate)}</p>
-                 {daysRemaining !== null && daysRemaining < 30 && (
-                   <TooltipProvider>
-                     <Tooltip>
-                       <TooltipTrigger>
-                         <AlertTriangle className="w-4 h-4 text-warning" strokeWidth={2} />
-                       </TooltipTrigger>
-                       <TooltipContent>域名即将过期</TooltipContent>
-                     </Tooltip>
-                   </TooltipProvider>
-                 )}
-              </div>
-            </div>}
-            <div className="py-4">
-              <p className="mb-1.5 text-xs text-muted-foreground">更新时间</p>
-              <p className="font-mono text-sm font-medium">{formatDate(normalized.updatedDate)}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4">
 
         {/* Status & Registrar Info Card */}
-        {isNetwork ? <Card className="min-w-0 gap-0 py-0 lg:col-span-2">
+        {isNetwork ? <Card className="min-w-0 gap-0 py-0">
           <CardHeader className="border-b border-border px-5 py-4 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Globe className="size-4 text-primary" strokeWidth={2} />
@@ -706,7 +734,7 @@ export function WhoisResult({ data }: WhoisResultProps) {
               </div>
             ))}
           </CardContent>
-        </Card> : <Card className="gap-0 py-0 lg:col-span-2">
+        </Card> : <Card className="gap-0 py-0">
           <CardHeader className="border-b border-border px-5 py-4 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Globe className="size-4 text-primary" strokeWidth={2} />
