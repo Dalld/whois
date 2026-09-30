@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ExportCard, EXPORT_CARD_WIDTH, type ExportCardData } from "@/components/export-card"
+import { PriceCompare } from "@/components/price-compare"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Copy, Globe, Server, ChevronDown, ChevronUp, Check, ShieldCheck, User, Mail, Phone, MapPin, Download, AlertTriangle, CircleCheck, ExternalLink, ImageDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -835,6 +836,20 @@ export function WhoisResult({ data }: WhoisResultProps) {
                    {normalized.nameServers.length === 0 && <span className="text-sm text-muted-foreground">无名称服务器信息</span>}
                </div>
             </div>
+
+            {/*
+              域名比价：仅对域名查询展示（IP/ASN 无注册商价格概念）。
+              数据来自各家注册商官方 API，组件内部自行拉取，
+              失败或无配置时自动不渲染，不会在页面上留下空壳。
+              normalized.domain 来自上游响应，大小写不确定，此处统一小写，
+              避免同一域名产生多份缓存。
+            */}
+            {!isNetwork && normalized.domain && (
+              <div className="md:col-span-2">
+                <p className="mb-3 text-xs font-medium text-muted-foreground">注册商比价</p>
+                <PriceCompare domain={String(normalized.domain).toLowerCase()} />
+              </div>
+            )}
           </CardContent>
         </Card>}
       </div>
