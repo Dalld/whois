@@ -4,11 +4,42 @@
 
 ```
 types.ts      统一报价模型 RegistrarQuote + 通用工具
+cloudflare.ts Cloudflare adapter（成本价基准）
 porkbun.ts    Porkbun adapter
+spaceship.ts  Spaceship adapter
+registry.ts   按环境变量装配可用 adapter
 compare.ts    多注册商并发聚合与排序（直连，不落库）
 store.ts      本地价格缓存（node:sqlite）
 refresh.ts    刷新调度：节流、退避、限流避让
 ```
+
+## 已接入的注册商
+
+| 注册商 | 定位 | 凭证 | 批量上限 |
+|---|---|---|---|
+| **Cloudflare** | **成本价基准**（不加价） | 账号 ID + API Token | 20 个/次 |
+| **Porkbun** | 低价代表，有免费 sandbox | API Key + Secret | 25 个/次 |
+| **Spaceship** | 接近成本价 | API Key + Secret | 批量 |
+
+**为什么先接这三家**：Cloudflare 以注册局成本价销售、不加价，
+它的报价天然是「价格下限」。有了这个基准，用户才能判断别家的溢价是否合理。
+Porkbun 与 Spaceship 则代表低价注册商的常态水位。
+
+### 配置方式
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=...   # 未配置则跳过该家
+export CLOUDFLARE_API_TOKEN=...
+export PORKBUN_API_KEY=...         # 未配置则走官方 mock
+export PORKBUN_SECRET_KEY=...
+export SPACESHIP_API_KEY=...       # 未配置则跳过该家
+export SPACESHIP_API_SECRET=...
+```
+
+**只装配配置了凭证的 adapter**，未配置的直接跳过，
+不会发出必然失败的请求，也不会把「未配置」混进比价错误里。
+
+`node --import tsx scripts/price-cache.ts status` 可查看当前配置状态。
 
 ## 快速验证
 
@@ -119,7 +150,10 @@ export class CloudflareAdapter implements RegistrarAdapter {
 
 ## 已知限制
 
-- 目前只有 Porkbun 一家 adapter
+- 三家 adapter，覆盖面限于头部注册商
 - 未处理汇率：假设所有注册商均以 USD 计价
 - 缓存无自动清理：`price_history` 会持续增长，长期运行需加保留策略
 - 单进程实现：多实例部署时缓存不共享，需换成共享存储
+- Cloudflare 的 Registrar API 仍是 beta，官方明确续费与转移操作暂不支持
+  （这里的 `renew` 表达的是**续费价格**，不是发起续费）
+- Spaceship 未直接给出溢价标记，adapter 用「价格 ≥ $500」保守推断

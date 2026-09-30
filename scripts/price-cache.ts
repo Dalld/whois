@@ -14,19 +14,15 @@
 
 import { PriceStore } from '../src/lib/pricing/store'
 import { refreshDomains, refreshStale } from '../src/lib/pricing/refresh'
-import { PorkbunAdapter } from '../src/lib/pricing/porkbun'
+import { adapterStatus, buildAdapters } from '../src/lib/pricing/registry'
 import type { RegistrarAdapter } from '../src/lib/pricing/types'
 
 const DB_PATH = process.env.PRICE_DB_PATH ?? '.price-cache.db'
 const TTL_MS = Number.parseInt(process.env.PRICE_TTL_MS ?? '', 10) || undefined
 
-function buildAdapters(): RegistrarAdapter[] {
-  return [
-    new PorkbunAdapter({
-      apiKey: process.env.PORKBUN_API_KEY,
-      secretApiKey: process.env.PORKBUN_SECRET_KEY,
-    }),
-  ]
+/** 由注册表按环境变量装配；只有配置了凭证的注册商才会参与 */
+function buildAdaptersForRun(): RegistrarAdapter[] {
+  return buildAdapters()
 }
 
 const fmt = (v: number | undefined | null) => (typeof v === 'number' ? `$${v.toFixed(2)}` : '—')
@@ -34,7 +30,14 @@ const fmt = (v: number | undefined | null) => (typeof v === 'number' ? `$${v.toF
 async function main() {
   const [command, ...rest] = process.argv.slice(2)
   const store = new PriceStore({ path: DB_PATH, ttlMs: TTL_MS })
-  const adapters = buildAdapters()
+  const adapters = buildAdaptersForRun()
+
+  if (adapters.length === 0) {
+    console.error('没有可用的注册商 adapter，请检查环境变量配置')
+    process.exitCode = 1
+    store.close()
+    return
+  }
 
   try {
     switch (command) {
@@ -106,18 +109,33 @@ async function main() {
         break
       }
 
+      case 'status': {
+        console.log('注册商配置状态：\n')
+        for (const s of adapterStatus()) {
+          console.log(`  ${s.configured ? '✓' : '·'} ${s.id.padEnd(12)} ${s.configured ? '已配置' : '未配置'}`)
+          console.log(`    ${s.note}`)
+        }
+        console.log(`\n当前参与比价的 adapter：${adapters.map(a => a.id).join(', ')}`)
+        break
+      }
+
       default:
         console.log(`用法：
   refresh <域名...>    刷新指定域名
   refresh --stale      刷新所有已过期条目
   show <域名>          查看缓存内容（含过期数据）
   stats                查看缓存统计
+  status               查看各注册商配置状态
 
 环境变量：
-  PRICE_DB_PATH        数据库路径（默认 .price-cache.db）
-  PRICE_TTL_MS         缓存有效期（默认 12 小时）
-  PORKBUN_API_KEY      Porkbun API key（缺省时走 mock）
-  PORKBUN_SECRET_KEY   Porkbun API secret`)
+  PRICE_DB_PATH          数据库路径（默认 .price-cache.db）
+  PRICE_TTL_MS           缓存有效期（默认 12 小时）
+  CLOUDFLARE_ACCOUNT_ID  Cloudflare 账号 ID
+  CLOUDFLARE_API_TOKEN   Cloudflare API Token
+  PORKBUN_API_KEY        Porkbun API key（缺省时走 mock）
+  PORKBUN_SECRET_KEY     Porkbun API secret
+  SPACESHIP_API_KEY      Spaceship API key
+  SPACESHIP_API_SECRET   Spaceship API secret`)
     }
   } finally {
     store.close()
