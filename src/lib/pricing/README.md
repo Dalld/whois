@@ -5,7 +5,9 @@
 ```
 types.ts      统一报价模型 RegistrarQuote + 通用工具
 porkbun.ts    Porkbun adapter
-compare.ts    多注册商并发聚合与排序
+compare.ts    多注册商并发聚合与排序（直连，不落库）
+store.ts      本地价格缓存（node:sqlite）
+refresh.ts    刷新调度：节流、退避、限流避让
 ```
 
 ## 快速验证
@@ -14,12 +16,29 @@ compare.ts    多注册商并发聚合与排序
 # 无密钥：走 Porkbun 官方 mock 端点，验证链路与字段映射
 node --import tsx scripts/price-check.ts example.com
 
+# 缓存：刷新 → 查看 → 统计
+node --import tsx scripts/price-cache.ts refresh example.com
+node --import tsx scripts/price-cache.ts show example.com
+node --import tsx scripts/price-cache.ts stats
+
 # 有密钥：走真实端点
-PORKBUN_API_KEY=... PORKBUN_SECRET_KEY=... node --import tsx scripts/price-check.ts example.com
+PORKBUN_API_KEY=... PORKBUN_SECRET_KEY=... node --import tsx scripts/price-cache.ts refresh example.com
 
 # 测试
-node --import tsx --test tests/pricing.test.ts
+node --import tsx --test tests/pricing*.test.ts
 ```
+
+## 为什么必须缓存
+
+Porkbun 限流「10 秒内最多 10 次」，Cloudflare 的 Check 更是直连注册局。
+用户每次查询都实时打各家 API 会立刻撞限流，因此架构是：
+
+```
+定时任务（refresh --stale） → 拉取 → 落库 → 用户查询命中缓存
+                                              ↓ 未命中才实时补一次
+```
+
+**不要**在请求路径上直接调 `comparePrices`，除非确认缓存未命中。
 
 ## 三个关键设计决策
 
@@ -41,6 +60,29 @@ node --import tsx --test tests/pricing.test.ts
 
 `comparePrices` 用 `Promise.allSettled`：某家超时或报错时，
 错误进 `errors` 数组，其余报价照常返回。单家超时默认 10 秒。
+
+## 存储层
+
+用 **`node:sqlite`**（Node 22+ 内置），不引入 `better-sqlite3` 等原生模块，
+避免 Windows 编译工具链依赖与二进制分发问题。
+
+两张表：
+- `quotes` —— 以 `(registrar, domain)` 为主键的报价快照
+- `price_history` —— 仅在价格变动时追加，用于「涨价/降价」提示与异常排查
+
+过期判定用 `>=` 而非 `>`：写入与读取可能落在同一毫秒，
+用 `>` 会让 `ttlMs=0` 的数据被误判为新鲜，导致刷新任务永远跳过它。
+
+## 刷新调度
+
+`refresh.ts` 替用户挡住限流：
+
+- **串行出队**，两次请求间强制间隔（默认 1.1 秒，为 Porkbun 10 秒 10 次留余量）
+- **指数退避**重试（1s → 2s → 4s），单域名上限 3 次
+- **命中 429 时**读取 `Retry-After`，暂停整个队列
+- **超时中断**，默认 10 秒
+
+并发是无效的：各家限流都按时间窗口计，并发只会更容易触发。
 
 ## 接入新注册商
 
@@ -72,9 +114,12 @@ export class CloudflareAdapter implements RegistrarAdapter {
 `source` 字段会标明本次数据来自 `live` / `sandbox` / `mock`，
 避免把示例数据误当成真实价格。
 
+> mock 端点返回的是 schema 示例，`additional.renewal/transfer` 的 price 是
+> 字面量 `"string"`，因此显示为 `—`。这是预期行为，不是 bug。
+
 ## 已知限制
 
 - 目前只有 Porkbun 一家 adapter
-- 尚无本地缓存：每次调用都直连注册商。生产环境应先落库再查询，
-  否则会撞限流（尤其 Cloudflare 的 Check 是直连注册局）
 - 未处理汇率：假设所有注册商均以 USD 计价
+- 缓存无自动清理：`price_history` 会持续增长，长期运行需加保留策略
+- 单进程实现：多实例部署时缓存不共享，需换成共享存储

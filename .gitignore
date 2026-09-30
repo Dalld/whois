@@ -17,6 +17,9 @@
 # 设计走查截图（本地对比用，不入库）
 /.redesign/
 
+# 域名比价价格缓存（本地数据，不入库）
+/.price-cache.db*
+
 # next.js
 /.next/
 /out/
