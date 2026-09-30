@@ -669,14 +669,14 @@ export function WhoisResult({ data }: WhoisResultProps) {
         </div>
 
         {/*
-          注册商比价：放在标题下方、关键事实行上方。
-          这里是最靠近主视觉的位置——比价的价值在于「该去哪注册」，
-          属于决策信息，比其他时间字段更该被先看到。
-          无报价时组件不渲染，事实行会自然上移，不留空档。
+          注册商比价：单行紧凑条，放在标题徽章下方。
+          比价回答的是「该去哪注册」，属于决策信息，该被先看到，
+          但不宜占用过多纵向空间，故压缩为一行。
+          与徽章行留出间距并加分隔线，避免与徽章挤在一起。
+          无报价时组件不渲染，下方事实行会自然上移，不留空档。
         */}
         {!isNetwork && normalized.domain && (
-          <div data-export-ignore className="mt-5 border-t border-border pt-5">
-            <p className="mb-3 text-xs font-medium text-muted-foreground">注册商比价</p>
+          <div data-export-ignore className="mt-4 border-t border-border/60 pt-3">
             <PriceCompare domain={String(normalized.domain).toLowerCase()} />
           </div>
         )}
