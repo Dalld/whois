@@ -668,6 +668,19 @@ export function WhoisResult({ data }: WhoisResultProps) {
           </div>
         </div>
 
+        {/*
+          注册商比价：放在标题下方、关键事实行上方。
+          这里是最靠近主视觉的位置——比价的价值在于「该去哪注册」，
+          属于决策信息，比其他时间字段更该被先看到。
+          无报价时组件不渲染，事实行会自然上移，不留空档。
+        */}
+        {!isNetwork && normalized.domain && (
+          <div data-export-ignore className="mt-5 border-t border-border pt-5">
+            <p className="mb-3 text-xs font-medium text-muted-foreground">注册商比价</p>
+            <PriceCompare domain={String(normalized.domain).toLowerCase()} />
+          </div>
+        )}
+
         {/* 关键事实行：注册人、注册商、注册与到期时间 */}
         <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-5">
           <div className="min-w-0">
@@ -836,20 +849,6 @@ export function WhoisResult({ data }: WhoisResultProps) {
                    {normalized.nameServers.length === 0 && <span className="text-sm text-muted-foreground">无名称服务器信息</span>}
                </div>
             </div>
-
-            {/*
-              域名比价：仅对域名查询展示（IP/ASN 无注册商价格概念）。
-              数据来自各家注册商官方 API，组件内部自行拉取，
-              失败或无配置时自动不渲染，不会在页面上留下空壳。
-              normalized.domain 来自上游响应，大小写不确定，此处统一小写，
-              避免同一域名产生多份缓存。
-            */}
-            {!isNetwork && normalized.domain && (
-              <div className="md:col-span-2">
-                <p className="mb-3 text-xs font-medium text-muted-foreground">注册商比价</p>
-                <PriceCompare domain={String(normalized.domain).toLowerCase()} />
-              </div>
-            )}
           </CardContent>
         </Card>}
       </div>

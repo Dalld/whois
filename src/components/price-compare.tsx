@@ -126,16 +126,26 @@ export function PriceCompare({ domain }: { domain: string }) {
   const hasPremium = data.quotes.some(q => q.premium)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* 溢价域名：同一后缀下价格差异极大，必须先讲清楚 */}
       {hasPremium && (
-        <div className="flex items-start gap-2 rounded-xl bg-warning/12 px-3.5 py-2.5 text-xs text-warning">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
-          <span>该域名为溢价域名，注册局定价远高于同后缀的普通域名。</span>
+        <div className="flex items-start gap-2 rounded-xl bg-warning/12 px-3.5 py-2 text-xs text-warning">
+          <AlertTriangle className="mt-[3px] size-3.5 shrink-0" strokeWidth={2} />
+          <span>溢价域名，注册局定价远高于同后缀的普通域名</span>
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
+        {/*
+          表头：让「续费 / 首年 / 差额」三列的含义一目了然。
+          列宽与下方 grid 完全一致，保证纵向对齐。
+        */}
+        <div className="hidden grid-cols-[5.5rem_6.5rem_3rem] gap-x-4 pr-3.5 sm:grid">
+          <span className="text-[11px] text-muted-foreground sm:text-right">续费价</span>
+          <span className="text-[11px] text-muted-foreground sm:text-right">首年价</span>
+          <span className="text-[11px] text-muted-foreground sm:text-right">差额</span>
+        </div>
+
         {sorted.map((q, index) => {
           const renew = q.renew?.price
           const register = q.register?.price
@@ -150,68 +160,64 @@ export function PriceCompare({ domain }: { domain: string }) {
             <div
               key={q.registrar}
               className={cn(
-                "flex flex-col gap-2.5 rounded-xl px-3.5 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1.5",
-                isBest ? "bg-success/8 ring-1 ring-success/25" : "bg-muted/60"
+                "flex flex-col gap-1 rounded-xl px-3.5 py-2 sm:flex-row sm:items-center sm:gap-4",
+                isBest ? "bg-success/8 ring-1 ring-success/25" : "bg-muted/55"
               )}
             >
-              {/* 注册商名与「最低」标记。窄屏时独占一行，避免被价格列挤到截断 */}
+              {/* 注册商名与状态标记 */}
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate text-sm font-medium text-foreground">{q.registrarName}</span>
                 {isBest && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
                     <TrendingDown className="size-3" strokeWidth={2} />
                     续费最低
                   </span>
                 )}
                 {sourceNote && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                     {sourceNote}
                   </span>
                 )}
                 {!q.available && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                    当前不可注册
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                    不可注册
                   </span>
                 )}
               </div>
 
-              {/* 价格：续费价为主，首年价次之。窄屏左对齐，宽屏靠右 */}
-              <div className="flex items-baseline gap-5 tnum sm:gap-4">
-                <div className="text-left sm:text-right">
-                  <p className="text-[11px] text-muted-foreground">续费</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {formatPrice(renew)}
-                    <span className="text-[11px] font-normal text-muted-foreground">/年</span>
-                  </p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-[11px] text-muted-foreground">首年</p>
-                  <p className="text-sm text-foreground/80">
-                    {formatPrice(register)}
-                    {/* 促销时显示标准价，让用户看清到期后会涨到多少 */}
-                    {q.register?.onSale && q.register.regularPrice !== q.register.price && (
-                      <span className="ml-1 text-[11px] text-muted-foreground line-through">
-                        {formatPrice(q.register.regularPrice)}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              {/* 与最优价的差额 */}
-              {diff !== null && diff > 0 && (
-                <span className="text-[11px] text-muted-foreground sm:w-14 sm:text-right">
-                  +{formatPrice(diff)}
+              {/*
+                价格列用 grid 固定列宽，保证三行的「续费 / 首年 / 差额」纵向对齐。
+                用 flex 时列宽随文字长度浮动，无法纵向扫读，对比体验很差。
+              */}
+              <div className="grid shrink-0 grid-cols-[auto_auto_auto] items-baseline gap-x-4 tnum sm:grid-cols-[5.5rem_6.5rem_3rem]">
+                <span className="text-sm sm:text-right">
+                  <span className="text-[11px] text-muted-foreground">续费 </span>
+                  <span className="font-semibold text-foreground">{formatPrice(renew)}</span>
+                  <span className="text-[11px] text-muted-foreground">/年</span>
                 </span>
-              )}
+                <span className="text-sm sm:text-right">
+                  <span className="text-[11px] text-muted-foreground">首年 </span>
+                  <span className="text-foreground/80">{formatPrice(register)}</span>
+                  {/* 促销时显示标准价，让用户看清到期后会涨到多少 */}
+                  {q.register?.onSale && q.register.regularPrice !== q.register.price && (
+                    <span className="ml-1 text-[11px] text-muted-foreground line-through">
+                      {formatPrice(q.register.regularPrice)}
+                    </span>
+                  )}
+                </span>
+                <span className="text-[11px] text-muted-foreground sm:text-right">
+                  {diff !== null && diff > 0 ? `+${formatPrice(diff)}` : ''}
+                </span>
+              </div>
             </div>
           )
         })}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Info className="size-3 shrink-0" strokeWidth={2} />
-          按续费价排序；数据来自注册商官方接口，仅供参考，以实际结算为准。
+          按续费价排序，数据来自注册商官方接口，以实际结算为准
         </p>
         {best && REGISTRAR_URLS[best.registrar] && (
           <a
