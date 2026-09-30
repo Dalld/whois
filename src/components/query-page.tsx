@@ -169,15 +169,18 @@ export function QueryPage() {
         )}>
           <div
             data-state={isCompact ? "compact" : "open"}
-            className="hero-transition mb-10 max-w-3xl text-center"
+            className="hero-transition mb-10 max-w-3xl px-2 text-center"
             aria-hidden={isCompact}
           >
-                <p className="mb-5 text-sm font-medium text-primary">域名与网络信息</p>
-                <h1 className="text-balance text-5xl font-semibold text-foreground sm:text-6xl lg:text-7xl">
-                  Whois 查询
+                <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3.5 py-1.5 text-xs font-medium text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-primary" />
+                  域名与网络信息查询
+                </p>
+                <h1 className="text-balance text-[2.75rem] font-semibold leading-[1.05] text-foreground sm:text-6xl lg:text-[4.25rem]">
+                  查一个域名，看清它的来龙去脉
                 </h1>
-                <p className="text-balance mx-auto mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  输入域名、IP 地址或 ASN，查看清晰可靠的注册与网络信息。
+                <p className="text-balance mx-auto mt-6 max-w-xl text-[17px] leading-7 text-muted-foreground">
+                  输入域名、IP 地址或 ASN，获取结构化的注册与网络信息。
                 </p>
           </div>
 
@@ -190,20 +193,20 @@ export function QueryPage() {
 
           <div
             data-state={isCompact ? "compact" : "open"}
-            className="feature-transition mt-9 flex w-full max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground"
+            className="feature-transition mt-9 flex w-full max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground"
             aria-hidden={isCompact}
           >
               <span>RDAP 优先</span>
-              <span className="size-1 rounded-full bg-muted-foreground/40" />
+              <span className="size-1 rounded-full bg-muted-foreground/30" />
               <span>支持域名、IP 与 ASN</span>
-              <span className="size-1 rounded-full bg-muted-foreground/40" />
+              <span className="size-1 rounded-full bg-muted-foreground/30" />
               <span>历史记录仅保存在本机</span>
           </div>
 
           {history.length > 0 && (
              <div
                data-state={isCompact ? "compact" : "open"}
-               className="history-transition mt-6 flex flex-wrap items-center justify-center gap-2"
+               className="history-transition mt-7 flex flex-wrap items-center justify-center gap-2"
                aria-hidden={isCompact}
              >
                 <span className="mr-1 text-xs font-medium text-muted-foreground">最近查询</span>
@@ -211,10 +214,10 @@ export function QueryPage() {
                   <button
                     key={i}
                     onClick={() => handleQuery(item.query, item.type)}
-                    className="group inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground"
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-foreground/15 hover:text-foreground"
                   >
                     {item.query}
-                    <ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" strokeWidth={2} />
                   </button>
                 ))}
              </div>
@@ -228,11 +231,11 @@ export function QueryPage() {
         )}>
           {loading && (
             <div className="mx-auto mb-6 w-full max-w-5xl">
-              <div className="quiet-surface loading-bridge overflow-hidden rounded-lg p-5 sm:p-6">
+              <div className="quiet-surface loading-bridge overflow-hidden rounded-2xl p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">正在查询</p>
-                    <p className="mt-1 truncate text-lg font-semibold">{activeQuery || "查询中"}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">正在查询</p>
+                    <p className="mt-1.5 truncate text-lg font-semibold tracking-[-0.01em]">{activeQuery || "查询中"}</p>
                   </div>
                   <div className="signal-loader" aria-hidden="true">
                     <span />
@@ -259,30 +262,37 @@ export function QueryPage() {
       )}>
         <div
           className={cn(
-            "absolute inset-0 bg-foreground/10 backdrop-blur-[2px] transition-opacity duration-300 dark:bg-black/40",
+            "absolute inset-0 bg-foreground/8 backdrop-blur-[2px] transition-opacity duration-300 dark:bg-black/50",
             showHistory ? "opacity-100" : "opacity-0"
           )}
           onClick={() => setShowHistory(false)}
         />
 
         <div className={cn(
-          "absolute inset-y-0 right-0 w-full max-w-md transform border-l border-border/60 bg-card p-5 shadow-2xl transition-transform duration-300 sm:p-6",
+          "glass-panel absolute inset-y-0 right-0 w-full max-w-md transform p-5 transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-6",
+          "border-y-0 border-r-0",
           showHistory ? "translate-x-0" : "translate-x-full"
         )}>
-          <div className="mb-5 flex items-start justify-between border-b border-border/60 pb-5">
+          <div className="mb-5 flex items-start justify-between pb-5">
             <div>
-              <h3 className="flex items-center gap-2 text-lg font-semibold">
-                <Clock className="size-4 text-muted-foreground" />
+              <h3 className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.015em]">
+                <Clock className="size-4 text-muted-foreground" strokeWidth={2} />
                 查询历史
               </h3>
               <p className="mt-1.5 text-xs text-muted-foreground">最近的 20 条查询保存在此设备</p>
             </div>
-            <Button variant="ghost" size="icon" aria-label="关闭历史记录" onClick={() => setShowHistory(false)}>
-              <X className="size-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="关闭历史记录"
+              onClick={() => setShowHistory(false)}
+              className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" strokeWidth={2} />
             </Button>
           </div>
 
-          <div className="-mr-2 h-[calc(100vh-112px)] space-y-2 overflow-y-auto pr-2">
+          <div className="-mr-2 h-[calc(100vh-140px)] space-y-1.5 overflow-y-auto pr-2">
             {history.map((item, i) => (
               <button
                 key={i}
@@ -290,19 +300,19 @@ export function QueryPage() {
                   handleQuery(item.query, item.type)
                   setShowHistory(false)
                 }}
-                className="group w-full rounded-lg p-3.5 text-left transition-colors hover:bg-accent"
+                className="group w-full rounded-xl border border-transparent p-3.5 text-left transition-all duration-200 hover:border-border hover:bg-card"
               >
-                <div className="truncate text-sm font-semibold transition-colors group-hover:text-primary">{item.query}</div>
+                <div className="truncate text-sm font-semibold tracking-[-0.01em] transition-colors group-hover:text-primary">{item.query}</div>
                 <div className="mt-2 flex justify-between text-[11px] font-medium text-muted-foreground">
                   <span className="uppercase tracking-wider opacity-70">{item.type}</span>
-                  <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                  <span className="tnum">{new Date(item.timestamp).toLocaleDateString()}</span>
                 </div>
               </button>
             ))}
             {history.length === 0 && (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-muted-foreground">
-                 <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
-                   <History className="size-4" />
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-20 text-muted-foreground">
+                 <div className="mb-4 flex size-11 items-center justify-center rounded-full bg-muted">
+                   <History className="size-[18px]" strokeWidth={2} />
                  </div>
                  <p className="text-sm font-medium text-foreground">暂无历史记录</p>
                  <p className="mt-1 text-xs">完成一次查询后会显示在这里</p>

@@ -14,25 +14,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium tracking-[-0.01em] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-none hover:brightness-95 active:scale-[0.98]",
+        /* 主按钮：Apple 实心蓝，按下轻微回弹 */
+        default: "bg-primary text-primary-foreground hover:brightness-[1.06] active:scale-[0.97]",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-destructive-foreground hover:brightness-[1.06] active:scale-[0.97] focus-visible:ring-destructive/30",
+        /* 描边按钮：浅描边 + 卡片底，悬停靠底色变化 */
         outline:
-          "border border-border/70 bg-card shadow-none hover:bg-accent hover:text-accent-foreground dark:bg-card dark:hover:bg-accent",
+          "border border-border bg-card text-foreground hover:bg-accent active:scale-[0.97]",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-accent active:scale-[0.98]",
+          "bg-secondary text-secondary-foreground hover:bg-accent active:scale-[0.97]",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "hover:bg-accent hover:text-accent-foreground active:scale-[0.97]",
+        link: "text-primary underline-offset-4 hover:underline rounded-sm",
       },
       size: {
-        default: "h-10 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-9 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-11 rounded-md px-6 has-[>svg]:px-4",
+        default: "h-10 px-4 py-2 has-[>svg]:px-3.5",
+        sm: "h-9 gap-1.5 px-3.5 has-[>svg]:px-3",
+        lg: "h-12 px-6 has-[>svg]:px-5",
         icon: "size-10",
       },
     },

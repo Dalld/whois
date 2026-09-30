@@ -6,6 +6,7 @@
  * 修改记录：
  * - 2025-09-25：添加中文文件头与 JSDoc 注释
  * - 2025-12-15: 重构为现代 UI 风格
+ * - 2026-01: 重设计为 Apple/Manus 风格悬浮胶囊搜索框
  */
 "use client"
 
@@ -21,6 +22,13 @@ interface WhoisFormProps {
   onSubmit: (query: string, type: string, dataSource?: string) => void
   loading: boolean
   defaultValue?: string
+}
+
+/** 查询类型 → 图标与中文标签 */
+const TYPE_META: Record<string, { icon: typeof Globe; label: string }> = {
+  domain: { icon: Globe, label: "域名" },
+  ip: { icon: Network, label: "IP / 网段" },
+  asn: { icon: Server, label: "ASN" },
 }
 
 export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
@@ -56,38 +64,50 @@ export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
     onSubmit(normalizedQuery, detectedType, "auto")
   }
 
-  const getIcon = () => {
-    if (!validation?.type) return <Search className="w-5 h-5 text-muted-foreground" />
-    switch (validation.type) {
-      case "domain": return <Globe className="w-5 h-5 text-primary" />
-      case "ip": return <Network className="w-5 h-5 text-primary" />
-      case "asn": return <Server className="w-5 h-5 text-primary" />
-      default: return <Search className="w-5 h-5 text-muted-foreground" />
-    }
-  }
+  const meta = validation?.type ? TYPE_META[validation.type] : undefined
+  const TypeIcon = meta?.icon ?? Search
+  const hasError = validation?.isValid === false
+  const canSubmit = Boolean(query.trim()) && !hasError
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-5">
       <form onSubmit={handleSubmit} className="group relative">
         <label htmlFor="whois-query" className="sr-only">域名、IP 或 ASN</label>
-        <div 
+
+        {/* 悬浮胶囊容器 */}
+        <div
           className={cn(
-            "surface-shadow relative flex w-full items-center overflow-hidden rounded-lg border border-border/55 bg-card p-1.5 transition-all duration-300",
-            isFocused ? "border-primary/45 ring-4 ring-primary/10" : "hover:border-foreground/15",
-            validation?.isValid === false && "border-destructive/55 ring-4 ring-destructive/10"
+            "relative flex w-full items-center gap-1 rounded-full border bg-card p-1.5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "shadow-[0_1px_3px_oklch(0.22_0.006_264/5%),0_10px_30px_oklch(0.22_0.006_264/8%)]",
+            "dark:shadow-[0_1px_3px_oklch(0_0_0/30%),0_10px_30px_oklch(0_0_0/32%)]",
+            isFocused
+              ? "border-primary/40 shadow-[0_1px_3px_oklch(0.22_0.006_264/5%),0_14px_40px_oklch(0.22_0.006_264/12%)] ring-4 ring-primary/12"
+              : "hover:border-foreground/12",
+            hasError && "border-destructive/50 ring-4 ring-destructive/10"
           )}
         >
-          <div className="relative z-10 flex size-11 shrink-0 items-center justify-center text-muted-foreground sm:ml-1">
-            {loading ? <Loader2 className="size-5 animate-spin text-primary" /> : getIcon()}
+          {/* 左侧类型图标 */}
+          <div className="relative z-10 flex size-11 shrink-0 items-center justify-center sm:ml-1.5">
+            {loading ? (
+              <Loader2 className="size-5 animate-spin text-primary" strokeWidth={2} />
+            ) : (
+              <TypeIcon
+                className={cn(
+                  "size-5 transition-colors duration-200",
+                  meta ? "text-primary" : "text-muted-foreground"
+                )}
+                strokeWidth={2}
+              />
+            )}
           </div>
-          
+
           <input
             id="whois-query"
             ref={inputRef}
             type="text"
-            aria-invalid={validation?.isValid === false}
-            aria-describedby={validation?.isValid === false ? "query-error" : undefined}
-            className="relative z-10 h-14 min-w-0 flex-1 border-none bg-transparent px-2 text-base font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground/70 sm:px-3 sm:text-lg"
+            aria-invalid={hasError}
+            aria-describedby={hasError ? "query-error" : undefined}
+            className="relative z-10 h-[3.25rem] min-w-0 flex-1 border-none bg-transparent px-1 text-base font-medium tracking-[-0.01em] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground/65 sm:text-[17px]"
             placeholder="输入域名、IP 地址或 ASN"
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
@@ -99,42 +119,53 @@ export function WhoisForm({ onSubmit, loading, defaultValue }: WhoisFormProps) {
             spellCheck="false"
           />
 
-          <div className={cn(
-            "relative z-10 shrink-0 overflow-hidden transition-all duration-200",
-            query.trim() ? "w-auto opacity-100" : "w-0 opacity-0"
-          )}>
-            <Button 
-              type="submit" 
-              aria-label="开始查询"
-              className={cn(
-                "h-11 px-4 transition-all sm:px-5",
-                query.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
-              )}
-              disabled={loading || (validation?.isValid === false)}
-            >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
-              <span className="hidden sm:inline">开始查询</span>
-            </Button>
-          </div>
+          {/* 识别类型提示（桌面） */}
+          {meta && !loading && (
+            <span className="hidden shrink-0 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground sm:inline-block">
+              {meta.label}
+            </span>
+          )}
+
+          {/* 提交按钮 */}
+          <Button
+            type="submit"
+            aria-label="开始查询"
+            className={cn(
+              "relative z-10 h-11 shrink-0 rounded-full px-4 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5",
+              canSubmit
+                ? "scale-100 opacity-100"
+                : "pointer-events-none w-0 scale-90 px-0 opacity-0"
+            )}
+            disabled={loading || hasError}
+          >
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+            ) : (
+              <ArrowRight className="size-4" strokeWidth={2} />
+            )}
+            <span className="hidden sm:inline">查询</span>
+          </Button>
         </div>
 
+        {/* 错误提示 */}
         <div className={cn(
-          "items-center gap-1.5 text-xs font-medium",
-          validation?.isValid === false ? "mt-3 flex text-destructive" : "hidden"
+          "items-center gap-1.5 px-5 text-xs font-medium",
+          hasError ? "mt-3 flex text-destructive" : "hidden"
         )}>
-          <AlertCircle className="size-3.5" />
+          <AlertCircle className="size-3.5 shrink-0" strokeWidth={2} />
           <span id="query-error" role="alert">{validation?.message}</span>
         </div>
       </form>
 
-      <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1 text-xs text-muted-foreground">
-        <span className="mr-1 font-medium">试试</span>
+      {/* 示例 chips */}
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5 text-xs text-muted-foreground">
+        <span className="font-medium">试试</span>
         {["baidu.com", "8.8.8.8", "AS15169"].map((example) => (
           <button
             key={example}
             type="button"
             onClick={() => handleInputChange(example)}
-            className="rounded-lg px-2.5 py-1.5 font-mono transition-colors hover:bg-accent hover:text-foreground"
+            className="rounded-full border border-transparent bg-secondary/70 px-3 py-1.5 font-mono text-[11px] transition-all duration-200 hover:border-border hover:bg-accent hover:text-foreground"
           >
             {example}
           </button>

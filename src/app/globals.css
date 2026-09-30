@@ -5,74 +5,163 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ------------------------------------------------------------------
+ * Whale Whois — Apple / Manus 风格设计系统
+ *
+ * 设计原则：
+ * 1. 层级靠字号、字重与背景色差，而非描边
+ * 2. 分隔线极轻（8% 级别），仅用于必要的信息分隔
+ * 3. 大圆角 + 多层柔和阴影，营造"浮起"的实体感
+ * 4. 动效短促、缓出（Apple 曲线），不做夸张位移
+ * 5. 中性灰底 + 单一强调色（Apple system blue）
+ * ------------------------------------------------------------------ */
+
 :root {
-  --background: oklch(0.968 0.003 264);
-  --foreground: oklch(0.205 0.006 264);
-  --card: oklch(0.995 0.001 264);
-  --card-foreground: oklch(0.205 0.006 264);
-  --popover: oklch(0.995 0.001 264);
-  --popover-foreground: oklch(0.205 0.006 264);
-  --primary: oklch(0.57 0.2 254);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.935 0.004 264);
-  --secondary-foreground: oklch(0.27 0.006 264);
-  --muted: oklch(0.935 0.004 264);
-  --muted-foreground: oklch(0.49 0.008 264);
-  --accent: oklch(0.925 0.008 264);
-  --accent-foreground: oklch(0.24 0.006 264);
-  --destructive: oklch(0.58 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.77 0.006 264 / 42%);
-  --input: oklch(0.77 0.006 264 / 52%);
-  --ring: oklch(0.57 0.2 254);
-  --radius: 0.5rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* 字体栈：Apple 系统字体优先，Inter 兜底拉丁，中文走系统黑体
+     注意：该变量定义在 :root 而非 @theme 内，避免被 Tailwind 的
+     --default-font-family 间接引用时发生层叠顺序竞争。 */
+  --font-apple:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    var(--font-inter), "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --font-mono-stack:
+    "SF Mono", ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* 底色：Apple 官网浅灰 #f5f5f7 量级 */
+  --background: oklch(0.9685 0.0016 264);
+  --foreground: oklch(0.2255 0.0064 264);
+
+  /* 卡片：比底色亮，靠色差自然分层 */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2255 0.0064 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2255 0.0064 264);
+
+  /* 强调色：Apple system blue #0071e3 */
+  --primary: oklch(0.5615 0.1972 254.6);
+  --primary-foreground: oklch(1 0 0);
+
+  /* 次级/静默面 */
+  --secondary: oklch(0.9455 0.0022 264);
+  --secondary-foreground: oklch(0.2862 0.0068 264);
+  --muted: oklch(0.9455 0.0022 264);
+  --muted-foreground: oklch(0.5231 0.0102 264);
+  --accent: oklch(0.9325 0.0032 264);
+  --accent-foreground: oklch(0.2558 0.0064 264);
+
+  --destructive: oklch(0.5787 0.2134 25.4);
+  --destructive-foreground: oklch(1 0 0);
+
+  /* 语义色（状态标签用）：Apple 系统色 */
+  --success: oklch(0.6452 0.1532 152.4);
+  --warning: oklch(0.7424 0.1554 74.5);
+  --info: oklch(0.5615 0.1972 254.6);
+
+  /* 描边：极轻，仅作必要分隔 */
+  --border: oklch(0.2255 0.0064 264 / 8%);
+  --input: oklch(0.2255 0.0064 264 / 12%);
+  --ring: oklch(0.5615 0.1972 254.6 / 45%);
+
+  /* 圆角：放大到 Apple 量级 */
+  --radius: 0.875rem;
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-pill: 999px;
+
+  /* 阴影：多层柔和，模拟真实光照 */
+  --shadow-xs: 0 1px 2px oklch(0.22 0.006 264 / 5%);
+  --shadow-sm:
+    0 1px 2px oklch(0.22 0.006 264 / 5%),
+    0 2px 8px oklch(0.22 0.006 264 / 4%);
+  --shadow-md:
+    0 1px 3px oklch(0.22 0.006 264 / 6%),
+    0 6px 18px oklch(0.22 0.006 264 / 6%);
+  --shadow-lg:
+    0 1px 3px oklch(0.22 0.006 264 / 5%),
+    0 12px 32px oklch(0.22 0.006 264 / 9%);
+  --shadow-xl:
+    0 2px 6px oklch(0.22 0.006 264 / 6%),
+    0 24px 56px oklch(0.22 0.006 264 / 13%);
+
+  /* Apple 缓动曲线 */
+  --ease-out-apple: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-apple: cubic-bezier(0.4, 0, 0.2, 1);
+
   --chart-1: oklch(0.58 0.15 182);
   --chart-2: oklch(0.7 0.13 78);
   --chart-3: oklch(0.62 0.13 262);
   --chart-4: oklch(0.65 0.16 34);
   --chart-5: oklch(0.55 0.08 225);
-  --sidebar: oklch(0.968 0.003 264);
-  --sidebar-foreground: oklch(0.205 0.006 264);
-  --sidebar-primary: oklch(0.57 0.2 254);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.925 0.008 264);
-  --sidebar-accent-foreground: oklch(0.24 0.006 264);
-  --sidebar-border: oklch(0.77 0.006 264 / 42%);
-  --sidebar-ring: oklch(0.57 0.2 254);
+
+  --sidebar: oklch(0.9685 0.0016 264);
+  --sidebar-foreground: oklch(0.2255 0.0064 264);
+  --sidebar-primary: oklch(0.5615 0.1972 254.6);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.9325 0.0032 264);
+  --sidebar-accent-foreground: oklch(0.2558 0.0064 264);
+  --sidebar-border: oklch(0.2255 0.0064 264 / 8%);
+  --sidebar-ring: oklch(0.5615 0.1972 254.6 / 45%);
 }
 
 .dark {
-  --background: oklch(0.11 0.004 264);
-  --foreground: oklch(0.95 0.003 264);
-  --card: oklch(0.16 0.005 264);
-  --card-foreground: oklch(0.95 0.003 264);
-  --popover: oklch(0.18 0.005 264);
-  --popover-foreground: oklch(0.95 0.003 264);
-  --primary: oklch(0.68 0.18 252);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.22 0.006 264);
-  --secondary-foreground: oklch(0.92 0.003 264);
-  --muted: oklch(0.22 0.006 264);
-  --muted-foreground: oklch(0.69 0.006 264);
-  --accent: oklch(0.24 0.008 264);
-  --accent-foreground: oklch(0.94 0.003 264);
-  --destructive: oklch(0.67 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.9 0.004 264 / 14%);
-  --input: oklch(0.9 0.004 264 / 18%);
-  --ring: oklch(0.68 0.18 252);
-  --sidebar: oklch(0.16 0.005 264);
-  --sidebar-foreground: oklch(0.95 0.003 264);
-  --sidebar-primary: oklch(0.68 0.18 252);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.24 0.008 264);
-  --sidebar-accent-foreground: oklch(0.94 0.003 264);
-  --sidebar-border: oklch(0.9 0.004 264 / 14%);
-  --sidebar-ring: oklch(0.68 0.18 252);
+  /* 深色底：Apple 深灰而非纯黑 */
+  --background: oklch(0.1608 0.0034 264);
+  --foreground: oklch(0.9556 0.0016 264);
+
+  --card: oklch(0.2069 0.0042 264);
+  --card-foreground: oklch(0.9556 0.0016 264);
+  --popover: oklch(0.2381 0.0046 264);
+  --popover-foreground: oklch(0.9556 0.0016 264);
+
+  /* 深色下蓝色提亮以保证对比度 */
+  --primary: oklch(0.6812 0.1724 252.4);
+  --primary-foreground: oklch(0.1608 0.0034 264);
+
+  --secondary: oklch(0.2547 0.0048 264);
+  --secondary-foreground: oklch(0.9341 0.0022 264);
+  --muted: oklch(0.2547 0.0048 264);
+  --muted-foreground: oklch(0.6932 0.0086 264);
+  --accent: oklch(0.2789 0.0056 264);
+  --accent-foreground: oklch(0.9455 0.0018 264);
+
+  --destructive: oklch(0.6791 0.1924 25.2);
+  --destructive-foreground: oklch(0.1608 0.0034 264);
+
+  --success: oklch(0.7154 0.1486 152.8);
+  --warning: oklch(0.7924 0.1478 76.2);
+  --info: oklch(0.6812 0.1724 252.4);
+
+  --border: oklch(0.9812 0.0016 264 / 10%);
+  --input: oklch(0.9812 0.0016 264 / 14%);
+  --ring: oklch(0.6812 0.1724 252.4 / 50%);
+
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 24%);
+  --shadow-sm:
+    0 1px 2px oklch(0 0 0 / 26%),
+    0 2px 8px oklch(0 0 0 / 22%);
+  --shadow-md:
+    0 1px 3px oklch(0 0 0 / 30%),
+    0 6px 18px oklch(0 0 0 / 26%);
+  --shadow-lg:
+    0 1px 3px oklch(0 0 0 / 30%),
+    0 12px 32px oklch(0 0 0 / 34%);
+  --shadow-xl:
+    0 2px 6px oklch(0 0 0 / 32%),
+    0 24px 56px oklch(0 0 0 / 44%);
+
+  --sidebar: oklch(0.2069 0.0042 264);
+  --sidebar-foreground: oklch(0.9556 0.0016 264);
+  --sidebar-primary: oklch(0.6812 0.1724 252.4);
+  --sidebar-primary-foreground: oklch(0.1608 0.0034 264);
+  --sidebar-accent: oklch(0.2789 0.0056 264);
+  --sidebar-accent-foreground: oklch(0.9455 0.0018 264);
+  --sidebar-border: oklch(0.9812 0.0016 264 / 10%);
+  --sidebar-ring: oklch(0.6812 0.1724 252.4 / 50%);
 }
 
 @theme inline {
@@ -92,6 +181,9 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -100,10 +192,13 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -112,6 +207,23 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* 字体：直接写入字面量栈，不经过自定义属性中转。
+     Tailwind 会据此生成 --default-font-family，避免因层叠顺序导致回退失效。 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    var(--font-inter), "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --font-mono:
+    "SF Mono", ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
 @layer base {
@@ -121,12 +233,37 @@
 
   html {
     @apply bg-background;
+
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
 
-    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Apple 式字距收紧，随字号自动适配 */
+    letter-spacing: -0.011em;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 标题字距更紧 —— Apple 排版标志性特征 */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.022em;
+  }
+
+  h1 {
+    letter-spacing: -0.028em;
+  }
+
+  /* 数字表格化对齐：日期、ASN、IP 段 */
+  .font-mono,
+  code,
+  kbd,
+  pre,
+  samp {
+    font-variant-numeric: tabular-nums;
     letter-spacing: 0;
   }
 
@@ -134,34 +271,57 @@
   a {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Apple 式细滚动条 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.5 0.005 264 / 26%);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.5 0.005 264 / 42%);
+    background-clip: content-box;
+  }
 }
 
 @layer utilities {
+  /* ---------- 版面过渡（保留原有语义，曲线换成 Apple 缓动） ---------- */
   .view-shell {
     transition:
-      padding 640ms cubic-bezier(0.25, 1, 0.5, 1),
-      max-width 640ms cubic-bezier(0.25, 1, 0.5, 1),
-      min-height 640ms cubic-bezier(0.25, 1, 0.5, 1);
+      padding 640ms var(--ease-out-apple),
+      max-width 640ms var(--ease-out-apple),
+      min-height 640ms var(--ease-out-apple);
   }
 
   .hero-transition {
-    max-height: 340px;
+    max-height: 380px;
     opacity: 1;
     overflow: hidden;
     transform: translateY(0) scale(1);
     transform-origin: center top;
     transition:
-      max-height 620ms cubic-bezier(0.25, 1, 0.5, 1),
-      margin 620ms cubic-bezier(0.25, 1, 0.5, 1),
+      max-height 620ms var(--ease-out-apple),
+      margin 620ms var(--ease-out-apple),
       opacity 300ms ease,
-      transform 620ms cubic-bezier(0.25, 1, 0.5, 1);
+      transform 620ms var(--ease-out-apple);
   }
 
   .hero-transition[data-state="compact"] {
     max-height: 0;
     margin-bottom: 0;
     opacity: 0;
-    transform: translateY(-10px) scale(0.99);
+    transform: translateY(-12px) scale(0.985);
   }
 
   .feature-transition,
@@ -171,10 +331,10 @@
     overflow: hidden;
     transform: translateY(0);
     transition:
-      max-height 560ms cubic-bezier(0.25, 1, 0.5, 1),
-      margin 560ms cubic-bezier(0.25, 1, 0.5, 1),
+      max-height 560ms var(--ease-out-apple),
+      margin 560ms var(--ease-out-apple),
       opacity 280ms ease,
-      transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform 620ms var(--ease-out-apple);
   }
 
   .feature-transition[data-state="compact"],
@@ -189,94 +349,131 @@
     margin-inline: auto;
     transform: translateY(0);
     transition:
-      max-width 620ms cubic-bezier(0.25, 1, 0.5, 1),
-      transform 620ms cubic-bezier(0.25, 1, 0.5, 1);
+      max-width 620ms var(--ease-out-apple),
+      transform 620ms var(--ease-out-apple);
   }
 
   .result-stage {
     transform: translateY(0);
     transition:
       opacity 420ms ease 120ms,
-      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform 700ms var(--ease-out-apple);
   }
 
   .loading-bridge {
-    animation: bridge-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: bridge-in 520ms var(--ease-out-apple) both;
   }
 
   .result-flow {
-    animation: result-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: result-rise 620ms var(--ease-out-apple) both;
   }
 
   .result-flow > * {
-    animation: result-item-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: result-item-in 560ms var(--ease-out-apple) both;
   }
 
   .result-flow > *:nth-child(1) {
-    animation-delay: 80ms;
+    animation-delay: 60ms;
   }
 
   .result-flow > *:nth-child(2) {
-    animation-delay: 150ms;
-  }
-
-  .result-flow > *:nth-child(3) {
-    animation-delay: 220ms;
-  }
-
-  .result-flow > *:nth-child(4) {
-    animation-delay: 290ms;
-  }
-
-  .signal-loader {
-    display: grid;
-    grid-template-columns: repeat(3, 0.5rem);
-    gap: 0.35rem;
-  }
-
-  .signal-loader span {
-    width: 0.4rem;
-    height: 1.25rem;
-    border-radius: 999px;
-    background: var(--primary);
-    opacity: 0.7;
-    animation: signal-pulse 900ms ease-in-out infinite;
-  }
-
-  .signal-loader span:nth-child(2) {
     animation-delay: 120ms;
   }
 
-  .signal-loader span:nth-child(3) {
+  .result-flow > *:nth-child(3) {
+    animation-delay: 180ms;
+  }
+
+  .result-flow > *:nth-child(4) {
     animation-delay: 240ms;
   }
 
+  .result-flow > *:nth-child(5) {
+    animation-delay: 300ms;
+  }
+
+  /* ---------- 表面材质 ---------- */
+
+  /* 顶部玻璃导航 */
   .glass {
-    @apply border-b border-border/60 bg-background/80 backdrop-blur-2xl;
+    background: color-mix(in oklab, var(--background) 72%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
   }
 
-  .surface-shadow {
-    box-shadow:
-      0 1px 2px oklch(0.12 0.006 264 / 4%),
-      0 12px 36px oklch(0.12 0.006 264 / 7%);
-  }
-
+  /* 主卡片：亮面 + 柔和阴影 */
   .panel {
-    @apply border border-border/55 bg-card;
-
-    box-shadow: 0 1px 2px oklch(0.12 0.006 264 / 3%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
   }
 
   .quiet-surface {
-    @apply bg-card;
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
 
+  /* 搜索框悬浮面 */
+  .surface-shadow {
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* 玻璃卡片：用于悬浮层 */
+  .glass-panel {
+    background: color-mix(in oklab, var(--card) 86%, transparent);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Apple 式内高光描边（浅色下增强实体感） */
+  .edge-highlight {
     box-shadow:
-      0 1px 2px oklch(0.12 0.006 264 / 4%),
-      0 8px 28px oklch(0.12 0.006 264 / 5%);
+      inset 0 1px 0 oklch(1 0 0 / 60%),
+      var(--shadow-sm);
+  }
+
+  .dark .edge-highlight {
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 6%),
+      var(--shadow-sm);
   }
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* 数字等宽，避免刷新时跳动 */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- 加载指示器：Apple 式呼吸点 ---------- */
+  .signal-loader {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.25rem;
+  }
+
+  .signal-loader span {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--primary);
+    opacity: 0.35;
+    animation: signal-pulse 1.25s var(--ease-in-out-apple) infinite;
+  }
+
+  .signal-loader span:nth-child(2) {
+    animation-delay: 160ms;
+  }
+
+  .signal-loader span:nth-child(3) {
+    animation-delay: 320ms;
   }
 }
 
@@ -319,13 +516,13 @@
 @keyframes signal-pulse {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scaleY(0.45);
+    opacity: 0.25;
+    transform: scale(0.75);
   }
 
   50% {
     opacity: 1;
-    transform: scaleY(1);
+    transform: scale(1);
   }
 }
 

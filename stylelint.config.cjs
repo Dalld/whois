@@ -9,7 +9,20 @@ module.exports = {
     "property-no-vendor-prefix": null,
     "rule-empty-line-before": null,
     "custom-property-empty-line-before": null,
-    "declaration-block-single-line-max-declarations": null
+    "declaration-block-single-line-max-declarations": null,
+    // 字体族名与 font-feature-settings 值为大小写敏感的关键字，必须保留原始写法
+    "value-keyword-case": [
+      "lower",
+      {
+        ignoreKeywords: [
+          "BlinkMacSystemFont",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "optimizeLegibility"
+        ]
+      }
+    ]
   },
   ignoreFiles: [
     "**/node_modules/**",

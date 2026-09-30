@@ -3,7 +3,16 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({ subsets: ["latin"] });
+/**
+ * 字体策略：Apple 系统字体栈优先（Mac 上得到真正的 SF Pro），
+ * Inter 仅作为拉丁字母的兜底字形，避免非 Apple 平台回退到 Segoe UI 的松散字形。
+ * Inter 由 next/font 自托管打包，不产生运行时外连请求。
+ */
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Whois查询工具 - 专业的域名信息查询平台",
@@ -68,7 +77,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
