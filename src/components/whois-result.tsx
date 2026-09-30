@@ -361,15 +361,46 @@ export function WhoisResult({ data }: WhoisResultProps) {
       const statusTones: Record<string, number> = {}
       normalized.domainStatus.forEach((s: string, i: number) => { statusTones[statuses[i]] = getStatusInfo(s).severity })
 
-      const contactEntries: { label: string; value: string }[] = []
-      const pushContact = (label: string, contact: any) => {
-        const value = contact?.name || contact?.organization
-        if (value) contactEntries.push({ label, value: formatDisplayValue(value) })
+      // 注册人详情：只保留有值的字段
+      // 部分注册局（如 MarkMonitor、Cloudflare 的隐私保护）会返回占位符，
+      // 这类内容没有信息量，展示出来只会干扰阅读，故一并过滤。
+      // 用「包含」匹配：占位符常带后缀，如 "REDACTED FOR PRIVACY"、
+      // "REDACTED REGISTRANT"、"DATA REDACTED;ext=DATA REDACTED"。
+      const PLACEHOLDER = /(redact|not\s+disclosed|privacy\s+protect|withheld|no\s+disclosure|unknown|n\/a|^none$|^-+$)/i
+      const clean = (v: unknown) => {
+        const text = formatDisplayValue(v)?.trim()
+        if (!text || text === '未知') return undefined
+        if (PLACEHOLDER.test(text)) return undefined
+        return text
       }
-      pushContact(isNetwork ? '资源持有人' : '注册人', normalized.registrant)
-      pushContact('管理员', normalized.admin)
-      pushContact('技术联系', normalized.tech)
-      if (!isNetwork) pushContact('账单联系', normalized.billing)
+      // 机构与姓名相同时只保留一个，避免重复占位
+      const org = clean(normalized.registrant?.organization)
+      const name = clean(normalized.registrant?.name)
+      // 地址：逐段清洗后再拼接。若各段几乎都是占位符，
+      // 只剩国家代码这类无意义残留（如 "CA"），则不展示整条地址。
+      const addressParts = [
+        clean(normalized.registrant?.street), clean(normalized.registrant?.city),
+        clean(normalized.registrant?.state), clean(normalized.registrant?.postalCode),
+        clean(normalized.registrant?.country),
+      ].filter(Boolean) as string[]
+      const rawAddressParts = [
+        normalized.registrant?.street, normalized.registrant?.city,
+        normalized.registrant?.state, normalized.registrant?.postalCode,
+        normalized.registrant?.country,
+      ].filter(Boolean).length
+      const addressIsRedacted = rawAddressParts > addressParts.length && addressParts.length <= 1
+      const registrant = {
+        name: name === org ? undefined : name,
+        organization: org,
+        email: clean(normalized.registrant?.email),
+        phone: clean(normalized.registrant?.phone),
+        fax: clean(normalized.registrant?.fax),
+        street: addressIsRedacted ? undefined : clean(normalized.registrant?.street),
+        city: addressIsRedacted ? undefined : clean(normalized.registrant?.city),
+        state: addressIsRedacted ? undefined : clean(normalized.registrant?.state),
+        postalCode: addressIsRedacted ? undefined : clean(normalized.registrant?.postalCode),
+        country: addressIsRedacted ? undefined : clean(normalized.registrant?.country),
+      }
 
       const exportData: ExportCardData = {
         title: queryTitle || normalized.domain || data.query || '查询结果',
@@ -382,7 +413,7 @@ export function WhoisResult({ data }: WhoisResultProps) {
         daysRemaining: isNetwork ? null : daysRemaining,
         statuses,
         nameServers: normalized.nameServers,
-        contacts: contactEntries.slice(0, 4),
+        registrant,
         siteUrl: window.location.host + window.location.pathname,
         queriedAt: formatDate(data.timestamp),
       }
@@ -411,18 +442,30 @@ export function WhoisResult({ data }: WhoisResultProps) {
       if (!alwaysShow) return null
     }
 
-    const name = contact?.name || contact?.Name
-    const org = contact?.organization || contact?.org || contact?.Organization
-    const email = contact?.email || contact?.Email || contact?.["e-mail"]
-    const phone = contact?.phone || contact?.Phone || contact?.["phone-number"]
-    const fax = contact?.fax || contact?.Fax
-    const titleText = contact?.title || contact?.Title
-    const role = contact?.role || contact?.Role
-    const street = contact?.street || contact?.address || contact?.Street
-    const city = contact?.city || contact?.City
-    const state = contact?.state || contact?.State || contact?.province
-    const postalCode = contact?.postalCode || contact?.postal_code || contact?.zip
-    const country = contact?.country || contact?.Country || contact?.["country-code"]
+    // 注册局可能返回 "DATA REDACTED" / "REDACTED FOR PRIVACY" 等占位符，
+    // 过滤后按空值处理。与导出卡的过滤规则保持一致（见 handleImageExport）。
+    // 用「包含」而非「全等」匹配：占位符常带后缀，如 "REDACTED FOR PRIVACY"、
+    // "REDACTED REGISTRANT"、"DATA REDACTED;ext=DATA REDACTED"。
+    const PLACEHOLDER = /(redact|not\s+disclosed|privacy\s+protect|withheld|no\s+disclosure|unknown|n\/a|^none$|^-+$)/i
+    const cleanField = (v: unknown) => {
+      const text = formatDisplayValue(v)?.trim()
+      if (!text || text === '未知') return undefined
+      if (PLACEHOLDER.test(text)) return undefined
+      return text
+    }
+
+    const name = cleanField(contact?.name || contact?.Name)
+    const org = cleanField(contact?.organization || contact?.org || contact?.Organization)
+    const email = cleanField(contact?.email || contact?.Email || contact?.["e-mail"])
+    const phone = cleanField(contact?.phone || contact?.Phone || contact?.["phone-number"])
+    const fax = cleanField(contact?.fax || contact?.Fax)
+    const titleText = cleanField(contact?.title || contact?.Title)
+    const role = cleanField(contact?.role || contact?.Role)
+    const street = cleanField(contact?.street || contact?.address || contact?.Street)
+    const city = cleanField(contact?.city || contact?.City)
+    const state = cleanField(contact?.state || contact?.State || contact?.province)
+    const postalCode = cleanField(contact?.postalCode || contact?.postal_code || contact?.zip)
+    const country = cleanField(contact?.country || contact?.Country || contact?.["country-code"])
 
     const hasData = name || org || email || phone || fax || titleText || role || street || city || state || postalCode || country
 
@@ -688,12 +731,15 @@ export function WhoisResult({ data }: WhoisResultProps) {
         </Card>}
       </div>
       
-      {/* Contact Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {/*
+        联系人只展示注册人 / 资源持有人。
+        管理员、技术、账单联系多数情况下与注册人重复，已移除以减少冗余；
+        完整字段仍可在下方「全部查询字段」与原始数据中查看。
+        网络查询的滥用投诉联系方式与注册人用途不同，故保留。
+      */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
          <ContactCard title={isNetwork ? '资源持有人' : '注册人'} contact={normalized.registrant} alwaysShow={!isNetwork} />
-         <ContactCard title="管理员" contact={normalized.admin} alwaysShow={!isNetwork} />
-         <ContactCard title="技术联系" contact={normalized.tech} alwaysShow={!isNetwork} />
-         {isNetwork ? <ContactCard title="滥用投诉" contact={{ email: parsed?.abuse_email, phone: parsed?.abuse_phone }} /> : <ContactCard title="账单联系" contact={normalized.billing} />}
+         {isNetwork && <ContactCard title="滥用投诉" contact={{ email: parsed?.abuse_email, phone: parsed?.abuse_phone }} />}
       </div>
 
       {/* Every parsed field is retained here, including registry-specific WHOIS fields. */}
