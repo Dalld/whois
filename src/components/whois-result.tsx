@@ -437,7 +437,12 @@ export function WhoisResult({ data }: WhoisResultProps) {
     }
   }
 
-  const ContactCard = ({ title, contact, alwaysShow = false }: { title: string, contact: any, alwaysShow?: boolean }) => {
+  /**
+   * 联系人卡片。
+   * embedded 为 true 时渲染为普通区块，用于嵌入其他卡片内部，
+   * 避免卡片套卡片；此时沿用外层卡片的边框与留白。
+   */
+  const ContactCard = ({ title, contact, alwaysShow = false, embedded = false }: { title: string, contact: any, alwaysShow?: boolean, embedded?: boolean }) => {
     if (!contact || Object.keys(contact).length === 0) {
       if (!alwaysShow) return null
     }
@@ -470,6 +475,58 @@ export function WhoisResult({ data }: WhoisResultProps) {
     const hasData = name || org || email || phone || fax || titleText || role || street || city || state || postalCode || country
 
     if (!hasData && !alwaysShow) return null
+
+    // 嵌入模式：使用普通区块，标题与内容都不带卡片内边距
+    if (embedded) {
+      return (
+        <div>
+          <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <User className="size-3.5" strokeWidth={2} />
+            {title}
+          </p>
+          {hasData ? (
+            <div className="space-y-3">
+              {(name || org || titleText || role) && (
+                <div>
+                  {org && <div className="whitespace-pre-wrap break-words text-sm font-semibold tracking-[-0.01em] text-foreground">{formatDisplayValue(org)}</div>}
+                  {name && <div className={cn("whitespace-pre-wrap break-words text-foreground", org ? "mt-1 text-sm font-medium" : "text-sm font-semibold tracking-[-0.01em]")}>{formatDisplayValue(name)}</div>}
+                  {(titleText || role) && <div className="mt-1 text-xs text-muted-foreground">{[titleText, role].map(formatDisplayValue).filter(Boolean).join(" · ")}</div>}
+                </div>
+              )}
+              {(email || phone || fax) && (
+                <div className="space-y-2">
+                  {email && (
+                    <div className="flex min-w-0 items-start gap-2 text-sm">
+                      <Mail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
+                      <span className="min-w-0 whitespace-pre-wrap break-all font-mono text-xs leading-5" title={formatDisplayValue(email)}>{formatDisplayValue(email)}</span>
+                    </div>
+                  )}
+                  {phone && (
+                    <div className="flex min-w-0 items-start gap-2 text-sm">
+                      <Phone className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
+                      <span className="min-w-0 whitespace-pre-wrap break-all font-mono text-xs leading-5">{formatDisplayValue(phone)}</span>
+                    </div>
+                  )}
+                  {fax && <p className="break-all pl-5.5 font-mono text-xs text-muted-foreground">传真：{formatDisplayValue(fax)}</p>}
+                </div>
+              )}
+              {(street || city || state || postalCode || country) && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+                  <div className="min-w-0 break-words">
+                    {street && <p className="whitespace-pre-wrap">{formatDisplayValue(street)}</p>}
+                    <p className="whitespace-pre-wrap">{[city, state, postalCode].map(formatDisplayValue).filter(Boolean).join(" ")}</p>
+                    {country && <p className="whitespace-pre-wrap">{formatDisplayValue(country)}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">数据源未提供注册人信息</span>
+          )}
+        </div>
+      )
+    }
 
     return (
       <Card className="h-full gap-0 py-0">
@@ -655,7 +712,7 @@ export function WhoisResult({ data }: WhoisResultProps) {
               <Globe className="size-4 text-primary" strokeWidth={2} />
               域名信息
             </CardTitle>
-            <CardDescription>注册商、状态与名称服务器</CardDescription>
+            <CardDescription>注册人、注册商、状态与名称服务器</CardDescription>
           </CardHeader>
 
           <CardContent className="grid gap-7 px-5 py-5 sm:px-5 md:grid-cols-2">
@@ -696,13 +753,22 @@ export function WhoisResult({ data }: WhoisResultProps) {
                 </div>
             </div>
 
+            {/*
+              注册商名称已在顶部标题旁展示，此处不再重复，
+              仅保留官网入口、IANA ID 与滥用投诉联系方式。
+            */}
             <div>
-                <p className="mb-2.5 text-xs font-medium text-muted-foreground">注册商</p>
-                <p className="text-sm font-semibold tracking-[-0.01em]">{normalized.registrar || "未知"}</p>
-                {normalized.registrarUrl && (
-                  <a href={normalized.registrarUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    访问注册商 <ExternalLink className="size-3" strokeWidth={2} />
+                <p className="mb-2.5 text-xs font-medium text-muted-foreground">
+                  {isNetwork ? '所属机构' : '注册商信息'}
+                </p>
+                {normalized.registrarUrl ? (
+                  <a href={normalized.registrarUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    访问注册商官网 <ExternalLink className="size-3" strokeWidth={2} />
                   </a>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    {isNetwork ? '无机构官网信息' : '无注册商官网信息'}
+                  </span>
                 )}
                 {normalized.registrarIanaId && <p className="text-muted-foreground text-xs mt-1.5 tnum">IANA ID: {normalized.registrarIanaId}</p>}
                 
@@ -715,6 +781,19 @@ export function WhoisResult({ data }: WhoisResultProps) {
                 )}
             </div>
             
+            {/*
+              注册人并入本卡片，避免底部出现一张孤立的卡片。
+              网络查询时标题为「资源持有人」。
+            */}
+            <div className="md:col-span-2">
+               <ContactCard
+                 embedded
+                 title={isNetwork ? '资源持有人' : '注册人'}
+                 contact={normalized.registrant}
+                 alwaysShow={!isNetwork}
+               />
+            </div>
+
             <div className="md:col-span-2">
                <p className="mb-3 text-xs font-medium text-muted-foreground">DNS 服务器</p>
                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -729,17 +808,6 @@ export function WhoisResult({ data }: WhoisResultProps) {
             </div>
           </CardContent>
         </Card>}
-      </div>
-      
-      {/*
-        联系人只展示注册人 / 资源持有人。
-        管理员、技术、账单联系多数情况下与注册人重复，已移除以减少冗余；
-        完整字段仍可在下方「全部查询字段」与原始数据中查看。
-        网络查询的滥用投诉联系方式与注册人用途不同，故保留。
-      */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-         <ContactCard title={isNetwork ? '资源持有人' : '注册人'} contact={normalized.registrant} alwaysShow={!isNetwork} />
-         {isNetwork && <ContactCard title="滥用投诉" contact={{ email: parsed?.abuse_email, phone: parsed?.abuse_phone }} />}
       </div>
 
       {/* Every parsed field is retained here, including registry-specific WHOIS fields. */}
