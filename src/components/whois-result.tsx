@@ -8,10 +8,12 @@
  */
 "use client"
 
-import { useRef, useState } from "react"
+import { createRef, useRef, useState } from "react"
+import { createRoot } from "react-dom/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ExportCard, EXPORT_CARD_WIDTH, type ExportCardData } from "@/components/export-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Copy, Globe, Server, ChevronDown, ChevronUp, Check, ShieldCheck, Calendar, User, Mail, Phone, MapPin, Download, AlertTriangle, CircleCheck, ExternalLink, ImageDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -342,15 +344,63 @@ export function WhoisResult({ data }: WhoisResultProps) {
   }
 
   const handleImageExport = async () => {
-    if (!resultRef.current || exportInProgress.current) return
+    if (exportInProgress.current) return
     exportInProgress.current = true
     setExportingImage(true)
     setExportError('')
+    // 把导出卡渲染到离屏容器，截图后立即移除，不影响页面
+    const host = document.createElement('div')
+    host.setAttribute('aria-hidden', 'true')
+    // 限制宿主宽度，避免块级卡片被拉伸到视口宽度
+    host.style.cssText = `position:fixed;left:-100000px;top:0;pointer-events:none;width:${EXPORT_CARD_WIDTH}px;`
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    const nodeRef = createRef<HTMLDivElement>()
     try {
-      await exportResultImage(resultRef.current, queryTitle || normalized.domain || data.query || 'query')
+      const statuses = normalized.domainStatus.map((s: string) => getStatusInfo(s).label)
+      const statusTones: Record<string, number> = {}
+      normalized.domainStatus.forEach((s: string, i: number) => { statusTones[statuses[i]] = getStatusInfo(s).severity })
+
+      const contactEntries: { label: string; value: string }[] = []
+      const pushContact = (label: string, contact: any) => {
+        const value = contact?.name || contact?.organization
+        if (value) contactEntries.push({ label, value: formatDisplayValue(value) })
+      }
+      pushContact(isNetwork ? '资源持有人' : '注册人', normalized.registrant)
+      pushContact('管理员', normalized.admin)
+      pushContact('技术联系', normalized.tech)
+      if (!isNetwork) pushContact('账单联系', normalized.billing)
+
+      const exportData: ExportCardData = {
+        title: queryTitle || normalized.domain || data.query || '查询结果',
+        queryType,
+        sourceLabel,
+        registrar: isNetwork ? parsed?.organization || parsed?.network_name : normalized.registrar,
+        registrationDate: formatDate(normalized.registrationDate),
+        expirationDate: formatDate(normalized.expirationDate),
+        updatedDate: formatDate(normalized.updatedDate),
+        daysRemaining: isNetwork ? null : daysRemaining,
+        statuses,
+        nameServers: normalized.nameServers,
+        contacts: contactEntries.slice(0, 4),
+        siteUrl: window.location.host + window.location.pathname,
+        queriedAt: formatDate(data.timestamp),
+      }
+
+      await new Promise<void>(resolve => {
+        root.render(<ExportCard ref={nodeRef} data={exportData} statusTones={statusTones} />)
+        // 等待样式与字体应用后再截图
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+
+      const node = nodeRef.current
+      if (!node) throw new Error('图片生成失败，请重试。')
+      await exportResultImage(node, queryTitle || normalized.domain || data.query || 'query')
     } catch (error) {
       setExportError(error instanceof Error ? error.message : '图片导出失败，请重试。')
     } finally {
+      root.unmount()
+      host.remove()
       exportInProgress.current = false
       setExportingImage(false)
     }
