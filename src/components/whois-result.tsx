@@ -782,10 +782,24 @@ export function WhoisResult({ data }: WhoisResultProps) {
             </div>
 
             {/*
-              注册商名称已在顶部标题旁展示，此处不再重复，
-              仅保留官网入口、IANA ID 与滥用投诉联系方式。
+              注册人并入本卡片，避免底部出现一张孤立的卡片。
+              位置与注册商信息对调：注册人排在域名状态右侧，更靠近页面主视觉。
+              网络查询时标题为「资源持有人」。
             */}
             <div>
+               <ContactCard
+                 embedded
+                 title={isNetwork ? '资源持有人' : '注册人'}
+                 contact={normalized.registrant}
+                 alwaysShow={!isNetwork}
+               />
+            </div>
+
+            {/*
+              注册商名称已在顶部摘要与状态徽章展示，此处不重复，
+              仅保留官网入口、IANA ID 与滥用投诉联系方式。
+            */}
+            <div className="md:col-span-2">
                 <p className="mb-2.5 text-xs font-medium text-muted-foreground">
                   {isNetwork ? '所属机构' : '注册商信息'}
                 </p>
@@ -807,19 +821,6 @@ export function WhoisResult({ data }: WhoisResultProps) {
                         {normalized.registrarAbusePhone && <p className="text-xs font-mono">{normalized.registrarAbusePhone}</p>}
                     </div>
                 )}
-            </div>
-            
-            {/*
-              注册人并入本卡片，避免底部出现一张孤立的卡片。
-              网络查询时标题为「资源持有人」。
-            */}
-            <div className="md:col-span-2">
-               <ContactCard
-                 embedded
-                 title={isNetwork ? '资源持有人' : '注册人'}
-                 contact={normalized.registrant}
-                 alwaysShow={!isNetwork}
-               />
             </div>
 
             <div className="md:col-span-2">
