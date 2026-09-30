@@ -15,6 +15,7 @@
 import { PriceStore } from '../src/lib/pricing/store'
 import { refreshDomains, refreshStale } from '../src/lib/pricing/refresh'
 import { adapterStatus, buildAdapters } from '../src/lib/pricing/registry'
+import { listRoster, IMPLEMENTED_SLUGS } from '../src/lib/pricing/miqingju'
 import type { RegistrarAdapter } from '../src/lib/pricing/types'
 
 const DB_PATH = process.env.PRICE_DB_PATH ?? '.price-cache.db'
@@ -32,7 +33,8 @@ async function main() {
   const store = new PriceStore({ path: DB_PATH, ttlMs: TTL_MS })
   const adapters = buildAdaptersForRun()
 
-  if (adapters.length === 0) {
+  // roster 只读米情局名册，不依赖任何注册商凭证，故不受此限制
+  if (adapters.length === 0 && command !== 'roster') {
     console.error('没有可用的注册商 adapter，请检查环境变量配置')
     process.exitCode = 1
     store.close()
@@ -109,6 +111,33 @@ async function main() {
         break
       }
 
+      case 'roster': {
+        /*
+          用米情局的开放端点 /stats 列出注册商名册，回答
+          「还有哪些家值得接官方 API」。
+
+          只用开放端点；需 PoW 的 /prices 不碰。
+        */
+        const limit = Number.parseInt(rest.find(a => /^\d+$/.test(a)) ?? '15', 10)
+        const showAll = rest.includes('--all')
+        const roster = await listRoster({ forceRefresh: rest.includes('--fresh') })
+
+        console.log(`名册：${roster.totalRegistrars} 家注册商 / ` +
+          `${roster.totalTlds} 个后缀 / ${roster.totalPrices} 条价格`)
+        console.log(`数据时间：${new Date(roster.fetchedAt).toLocaleString()}\n`)
+
+        const done = new Set(Object.values(IMPLEMENTED_SLUGS))
+        const rows = showAll ? roster.registrars : roster.registrars.slice(0, limit)
+        console.log('  覆盖度  注册商                    官网')
+        for (const r of rows) {
+          const mark = done.has(r.slug) ? '✓' : '·'
+          console.log(`  ${mark} ${String(r.priceCount).padStart(4)}  ${r.name.padEnd(24).slice(0, 24)} ${r.website}`)
+        }
+        console.log(`\n✓ 为已接入官方 API 的注册商；共 ${done.size} 家`)
+        if (!showAll) console.log(`（仅显示覆盖度前 ${limit} 家，用 --all 查看全部）`)
+        break
+      }
+
       case 'status': {
         console.log('注册商配置状态：\n')
         for (const s of adapterStatus()) {
@@ -126,10 +155,12 @@ async function main() {
   show <域名>          查看缓存内容（含过期数据）
   stats                查看缓存统计
   status               查看各注册商配置状态
+  roster [N] [--all]   米情局名册：还有哪些家值得接（默认前 15 家）
 
 环境变量：
   PRICE_DB_PATH          数据库路径（默认 .price-cache.db）
   PRICE_TTL_MS           缓存有效期（默认 12 小时）
+  MIQINGJU_API_BASE      米情局 API 地址（可指向自建镜像）
   CLOUDFLARE_ACCOUNT_ID  Cloudflare 账号 ID
   CLOUDFLARE_API_TOKEN   Cloudflare API Token
   PORKBUN_API_KEY        Porkbun API key（缺省时走 mock）

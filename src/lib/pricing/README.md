@@ -8,10 +8,46 @@ cloudflare.ts Cloudflare adapter（成本价基准）
 porkbun.ts    Porkbun adapter
 spaceship.ts  Spaceship adapter
 registry.ts   按环境变量装配可用 adapter
+miqingju.ts   米情局**开放端点**的注册商名册（不产出报价）
 compare.ts    多注册商并发聚合与排序（直连，不落库）
 store.ts      本地价格缓存（node:sqlite）
 refresh.ts    刷新调度：节流、退避、限流避让
 ```
+
+## 注册商名册（米情局开放端点）
+
+`miqingju.ts` 使用米情局（miqingju.com）的**开放端点** `/api/v1/stats`，
+该端点无需任何验证，返回 128 家注册商的名册：
+
+```
+node --import tsx scripts/price-cache.ts roster      # 看覆盖度前 15 家
+node --import tsx scripts/price-cache.ts roster --all
+```
+
+输出形如：
+
+```
+名册：128 家注册商 / 3367 个后缀 / 52811 条价格
+
+  覆盖度  注册商                    官网
+  · 2480  Regery                   https://regery.com
+  ✓  637  Porkbun                  https://porkbun.com
+  ✓  350  Cloudflare               https://www.cloudflare.com
+```
+
+**它解决的问题**：不必自己猜「该接哪一家」，按价格覆盖度排序即可，
+128 家的清单省去大量调研。
+
+### 边界：只用开放端点
+
+**不使用 `/prices` 端点。** 该端点有 Altcha PoW 工作量证明、一次性 token、
+IP 级冷却三重访问控制，是明确的反自动化机制，绕过属规避访问控制。
+本模块只把名册当作「接入优先级参考」，不从中取价格数据。
+
+因此它**不产出 `RegistrarQuote`，也不参与 `comparePrices()`**，
+是名册而非比价数据源。
+
+名册变化很慢（按天），缓存 24 小时。可用 `MIQINGJU_API_BASE` 指向自建镜像。
 
 ## 界面接入
 
