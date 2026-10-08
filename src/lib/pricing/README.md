@@ -5,14 +5,79 @@
 ```
 types.ts      统一报价模型 RegistrarQuote + 通用工具
 cloudflare.ts Cloudflare adapter（成本价基准）
-porkbun.ts    Porkbun adapter
+porkbun.ts    Porkbun adapter（域名级，需 key）
 spaceship.ts  Spaceship adapter
 registry.ts   按环境变量装配可用 adapter
 miqingju.ts   米情局**开放端点**的注册商名册（不产出报价）
 compare.ts    多注册商并发聚合与排序（直连，不落库）
 store.ts      本地价格缓存（node:sqlite）
 refresh.ts    刷新调度：节流、退避、限流避让
+
+—— 以下是**后缀级**比价（见下节）——
+tld-types.ts    后缀价模型 TldPrice
+porkbun-tld-api.ts  Porkbun 官方公开价目接口（首选）
+porkbun-tld.ts      Porkbun 定价页抓取（兜底）
+tld-registry.ts     后缀价数据源装配
+tld-store.ts        后缀价缓存（node:sqlite）
+tld-refresh.ts      整表刷新与后缀比价
 ```
+
+## 后缀级比价
+
+与上面「域名级」并列的第二套能力，两者用途不同：
+
+| | 域名级 | 后缀级 |
+|---|---|---|
+| 问的问题 | 「`feng.cx` 在 A 家多少钱」 | 「`.cx` 各家挂牌价多少」 |
+| 数据来源 | 逐域名调 API | 整表价目（接口/抓页） |
+| 覆盖 | 已接入的少数几家 | **910 个后缀** |
+| 限流 | 受批量上限与限流约束 | 一次抓取全量，零外连 |
+| 溢价 | 能识别 | **不识别**（见下） |
+
+### 为什么不看溢价
+
+后缀价是**非溢价域名的挂牌价**。具体某个域名是否溢价、是否已被注册，
+由用户在注册商页面自行确认。后缀比价只回答
+「这个后缀大致什么价位、哪家最便宜」，不承诺最终结算价。
+
+### 命令
+
+```bash
+node --import tsx scripts/tld-prices.ts refresh           # 刷新已过期数据源
+node --import tsx scripts/tld-prices.ts refresh --force   # 强制全量刷新
+node --import tsx scripts/tld-prices.ts compare feng.cx   # 比价（接受域名或后缀）
+node --import tsx scripts/tld-prices.ts compare cx com io
+node --import tsx scripts/tld-prices.ts sources           # 数据源新鲜度
+```
+
+输出示例：
+
+```
+.cx  （1 家报价）
+  Porkbun      注册    $16.53  续费    $16.75  转移    $16.53
+
+.io  （1 家报价）
+  Porkbun      注册    $28.12  续费    $51.80  转移    $51.80
+```
+
+注意 `.io`：首年 $28.12、续费 $51.80。**按首年价排会得出误导性的便宜**，
+故排序一律用续费价。
+
+### 数据源：Porkbun 官方公开价目接口
+
+`GET https://api.porkbun.com/api/json/v3/pricing/get`
+
+- **无需认证**，一次返回 **910 个后缀**的 registration/renewal/transfer
+- 价格为字符串（官方为保留小数精度），币种 USD
+- 与域名级的 `domain/checkDomain` 不同：那个需要 key 且一次只能查一个域名
+
+`porkbun-tld.ts`（抓定价页，约 605 个后缀）作为**兜底**保留：
+官方接口若下线，可设 `TLD_PORKBUN_MODE=crawl` 切回。
+
+### 缓存策略
+
+整表入库，查询零外连。默认 TTL 24 小时。
+`refresh` 不带参数时只刷已过期的数据源，全部新鲜则不发任何请求。
 
 ## 注册商名册（米情局开放端点）
 

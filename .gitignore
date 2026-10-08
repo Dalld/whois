@@ -46,3 +46,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 价格缓存（本地生成，不入库）
+/.price-cache.db*
+/.tld-prices.db*
