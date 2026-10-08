@@ -15,8 +15,9 @@ refresh.ts    刷新调度：节流、退避、限流避让
 
 —— 以下是**后缀级**比价（见下节）——
 tld-types.ts    后缀价模型 TldPrice
-porkbun-tld-api.ts  Porkbun 官方公开价目接口（首选）
-porkbun-tld.ts      Porkbun 定价页抓取（兜底）
+porkbun-tld-api.ts  Porkbun 官方公开价目接口（整表，首选）
+porkbun-tld.ts      Porkbun 定价页抓取（整表，兜底）
+gandi-tld.ts        Gandi 逐后缀抓取（补 .al / .im）
 tld-registry.ts     后缀价数据源装配
 tld-store.ts        后缀价缓存（node:sqlite）
 tld-refresh.ts      整表刷新与后缀比价
@@ -78,6 +79,38 @@ node --import tsx scripts/tld-prices.ts sources           # 数据源新鲜度
 
 整表入库，查询零外连。默认 TTL 24 小时。
 `refresh` 不带参数时只刷已过期的数据源，全部新鲜则不发任何请求。
+
+### 数据源（共 912 个后缀）
+
+分两类：
+
+| 类型 | 注册商 | 覆盖 | 说明 |
+|---|---|---|---|
+| 整表 | Porkbun | 910 | 官方 `/pricing/get`，无需认证 |
+| 逐后缀 | Gandi | 2 | `.al` `.im`（Porkbun 未收录） |
+
+Gandi 实测价：`.im` 注册 $20.00 / 续费 $39.98；`.al` 注册 $395.00 / 续费 $663.98。
+两者注册价与续费价差别很大，故解析按 `Registration` / `Renewal` 标签锚定取值，
+不能用「出现次数最多」这类启发式。
+
+### 试过但不可用的数据源
+
+记录下来避免重复调研：
+
+- **Netim** —— `.al` €16/年、`.im` €20/年，本轮找到的最低价，
+  但站点前置 Cloudflare，对 Node 的 fetch 一律 **403**
+  （同样 URL 用 PowerShell 请求是 200，属按 TLS 指纹拦截）。
+  实测换浏览器 UA、补全 `sec-ch-ua` / `Sec-Fetch-*` 仍为 403。
+  **未做进一步规避**——绕过 WAF 属于规避访问控制。
+- **nic.im / akep.al** —— `.im` 与 `.al` 的注册局，页面为注册表单与
+  规则说明，**不含价格**。
+- **Cloudflare `/tld-policies/`** —— 返回 200、体积 690KB，
+  但正文无任何价格数字（`$x.xx` 匹配数为 0），价目为客户端渲染。
+- **Namecheap / NameSilo** —— 定价页 403。
+- **Dynadot** —— 定价页是落地页，价目动态加载。
+- **INWX** —— `domain.getPrices` 可一次返回全部 TLD（已确认接口结构），
+  但需账号凭证（用户名+密码，2FA 还需 TOTP），且价格按登录账号的
+  币种与 VAT 国家计算，**不是中立的公开价目表**，故未接入。
 
 ## 注册商名册（米情局开放端点）
 
