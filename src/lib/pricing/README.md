@@ -80,37 +80,68 @@ node --import tsx scripts/tld-prices.ts sources           # 数据源新鲜度
 整表入库，查询零外连。默认 TTL 24 小时。
 `refresh` 不带参数时只刷已过期的数据源，全部新鲜则不发任何请求。
 
-### 数据源（共 912 个后缀）
+### 数据源（共 978 条报价 / 940 个后缀）
 
-分两类：
-
-| 类型 | 注册商 | 覆盖 | 说明 |
+| 类型 | 注册商 | 后缀数 | 取数方式 |
 |---|---|---|---|
 | 整表 | Porkbun | 910 | 官方 `/pricing/get`，无需认证 |
-| 逐后缀 | Gandi | 2 | `.al` `.im`（Porkbun 未收录） |
+| 逐后缀 | Gandi | 68 | 抓 `/en-US/domain/tld/{后缀}` 页面 |
 
-Gandi 实测价：`.im` 注册 $20.00 / 续费 $39.98；`.al` 注册 $395.00 / 续费 $663.98。
-两者注册价与续费价差别很大，故解析按 `Registration` / `Renewal` 标签锚定取值，
-不能用「出现次数最多」这类启发式。
+逐后缀源每次刷新发 68 个请求（200ms 间隔），约 80 秒。
+
+### 两家对比暴露的典型情况
+
+```
+.com   Porkbun 注册 $11.08  续费 $11.08    ← 长期真实成本
+       Gandi   注册 $11.00  续费 $38.38    ← 首年略便宜，续费贵 3.5 倍
+```
+
+Gandi 的注册价（$11.00）**看起来**比 Porkbun（$11.08）便宜，
+但续费价高出 3.5 倍。若按首年价排序会得出误导性结论，
+故排序一律用续费价。
 
 ### 试过但不可用的数据源
 
-记录下来避免重复调研：
+调研了约 25 家注册商，记录如下以免重复劳动：
 
-- **Netim** —— `.al` €16/年、`.im` €20/年，本轮找到的最低价，
+- **Netim** —— `.al` €16/年、`.im` €20/年，是找到的最低价，
   但站点前置 Cloudflare，对 Node 的 fetch 一律 **403**
   （同样 URL 用 PowerShell 请求是 200，属按 TLS 指纹拦截）。
   实测换浏览器 UA、补全 `sec-ch-ua` / `Sec-Fetch-*` 仍为 403。
   **未做进一步规避**——绕过 WAF 属于规避访问控制。
-- **nic.im / akep.al** —— `.im` 与 `.al` 的注册局，页面为注册表单与
-  规则说明，**不含价格**。
-- **Cloudflare `/tld-policies/`** —— 返回 200、体积 690KB，
-  但正文无任何价格数字（`$x.xx` 匹配数为 0），价目为客户端渲染。
-- **Namecheap / NameSilo** —— 定价页 403。
-- **Dynadot** —— 定价页是落地页，价目动态加载。
-- **INWX** —— `domain.getPrices` 可一次返回全部 TLD（已确认接口结构），
-  但需账号凭证（用户名+密码，2FA 还需 TOTP），且价格按登录账号的
-  币种与 VAT 国家计算，**不是中立的公开价目表**，故未接入。
+- **Gandi 全表页** `/domain/tld` —— 服务端渲染，但只输出 50 个后缀
+  （按字母排到 `.az` 即止），其余客户端加载。**覆盖不如逐后缀抓取**，
+  故仍走逐后缀。
+- **INWX `/en/domain/pricelist`** —— 服务端渲染、robots 允许、
+  无 Cloudflare，但只公开 10 个后缀（`.at .biz .ch .com .de .eu
+  .info .li .net .org`），其余"upon request"。
+- **Dynadot / Netim / NameSilo / Dreamhost** —— 有 Cloudflare 拦截；
+  NameSilo `/pricing` 直接 403，连 robots.txt 都 403。
+- **OVHcloud / Ionos** —— 价格在 JS 中，服务端 HTML 无价格。
+- **Cloudflare `/tld-policies/`** —— 返回 200、690KB，但正文
+  **零价格数字**（实测 `$x.xx` 匹配数为 0），价目为客户端渲染。
+- **nic.im / akep.al** —— `.im` 与 `.al` 注册局，页面为注册表单
+  与规则说明，无价格。
+- **101domain / Regery / Nicenic** —— 403 或连接被关闭。
+- **Hexonet / OnlyDomains / EuroDNS** —— 404。
+- **tld-list.com** —— robots 明确 `Allow: /` 且给了 sitemap，
+  但实际请求一律 403。
+
+### 需要 API key 才能用的（未接入）
+
+- **INWX** `domain.getPrices` —— 可一次返回全部 TLD，但需账号凭证
+  （用户名+密码，2FA 还需 TOTP），且价格按登录账号的币种与 VAT
+  国家计算，不是中立的公开价目表。
+- **NameSilo** `getPrices` / `getTldPricing` —— 端点真实存在
+  （实测错误码可区分：`getPrices` 返回 401 Invalid API key，
+  `getTldPricing` 返回 200 但 "Permission denied"，疑似需更高权限层级）。
+  官方称 API 免费、无调用费。
+- **Dynadot** `api3.json?command=tld_price` —— 一次返回全部 TLD。
+- **DomScan** —— 聚合层，`/v1/prices/registrars` 会直接列出
+  「哪些商家有官方公开价目」（`standardPricingSources`），
+  按 credit 计费。
+- **Namecheap** `users.getPricing` —— 需 ApiUser + ApiKey + ClientIp
+  + IP 白名单 + 开启 API 访问。
 
 ## 注册商名册（米情局开放端点）
 

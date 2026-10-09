@@ -114,12 +114,16 @@ describe('Gandi 后缀页解析', () => {
 })
 
 describe('Gandi 抓取源', () => {
+  // 抓取源默认覆盖 68 个后缀，测试里必须限定范围，
+  // 否则用例会真的发 68 次请求（含 200ms 间隔，单例超 10 秒）
+  const twoTlds = { tlds: ['al', 'im'], delayMs: 0 }
+
   test('HTTP 错误被记录而非静默跳过', async () => {
     const real = globalThis.fetch
     globalThis.fetch = (async () => new Response('', { status: 403 })) as typeof fetch
     try {
       const src = new GandiTldSource()
-      await assert.rejects(() => src.fetchAll(), /全部后缀抓取失败/)
+      await assert.rejects(() => src.fetchAll(twoTlds), /全部后缀抓取失败/)
       assert.equal(src.lastErrors.length, 2, '两个后缀都应记录失败')
       assert.match(src.lastErrors[0].message, /HTTP 403/)
     } finally {
@@ -131,7 +135,7 @@ describe('Gandi 抓取源', () => {
     const real = globalThis.fetch
     globalThis.fetch = (async () => new Response('<html>no prices</html>', { status: 200 })) as typeof fetch
     try {
-      await assert.rejects(() => new GandiTldSource().fetchAll(), /全部后缀抓取失败/)
+      await assert.rejects(() => new GandiTldSource().fetchAll(twoTlds), /全部后缀抓取失败/)
     } finally {
       globalThis.fetch = real
     }
@@ -147,7 +151,7 @@ describe('Gandi 抓取源', () => {
     }) as typeof fetch
     try {
       const src = new GandiTldSource()
-      const out = await src.fetchAll()
+      const out = await src.fetchAll(twoTlds)
       assert.equal(out.length, 1)
       assert.equal(out[0].tld, 'im')
       assert.equal(src.lastErrors.length, 1)
@@ -162,8 +166,26 @@ describe('Gandi 抓取源', () => {
     let calls = 0
     globalThis.fetch = (async () => { calls++; return new Response(gandiPage({ tld: 'im' }), { status: 200 }) }) as typeof fetch
     try {
-      await new GandiTldSource().fetchAll({ tlds: ['im'] })
+      await new GandiTldSource().fetchAll({ tlds: ['im'], delayMs: 0 })
       assert.equal(calls, 1, '只应请求一次')
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+
+  test('默认抓取清单覆盖 .al / .im / .gg / .to 等 Porkbun 缺口后缀', async () => {
+    const real = globalThis.fetch
+    const asked: string[] = []
+    globalThis.fetch = (async (url: any) => {
+      asked.push(String(url).split('/').pop()!)
+      return new Response(gandiPage({ tld: 'x' }), { status: 200 })
+    }) as typeof fetch
+    try {
+      await new GandiTldSource().fetchAll({ delayMs: 0 })
+      for (const t of ['al', 'im', 'gg', 'je', 'to', 'cx']) {
+        assert.ok(asked.includes(t), `默认清单应包含 .${t}`)
+      }
+      assert.ok(asked.length >= 50, `默认清单应有足够覆盖，实际 ${asked.length}`)
     } finally {
       globalThis.fetch = real
     }
@@ -175,7 +197,7 @@ describe('Gandi 抓取源', () => {
       init?.signal?.addEventListener('abort', () => rej(new Error('aborted')))
     })) as typeof fetch
     try {
-      await assert.rejects(() => new GandiTldSource().fetchAll({ timeoutMs: 50 }))
+      await assert.rejects(() => new GandiTldSource().fetchAll({ timeoutMs: 50, tlds: ['im'], delayMs: 0 }))
     } finally {
       globalThis.fetch = real
     }

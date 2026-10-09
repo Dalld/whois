@@ -31,10 +31,30 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const TIMEOUT_MS = 20_000
 
-/** 已知 Gandi 有售的后缀 */
-const GANDI_PATHS: Record<string, string> = {
-  im: 'im',
-  al: 'al',
+/**
+ * 已知 Gandi 有售的后缀。
+ *
+ * 实测 69 个常见后缀中 68 个可解析出价格（`.ru` 无价）。
+ * 这个清单是**逐后缀抓取**的抓取范围：每个后缀一次请求，
+ * 因此不能无限扩张——每次刷新会发 68 个请求，
+ * 保守加 200ms 间隔以避免给对方造成压力。
+ *
+ * 需要增删后缀时直接改这里；不在此清单中的后缀不会抓取。
+ */
+const GANDI_TLDS: string[] = [
+  // 通用
+  'com', 'net', 'org', 'info', 'biz', 'xyz', 'online', 'site', 'store', 'tech', 'dev', 'app', 'ai',
+  // 常见 ccTLD / 国别
+  'io', 'co', 'me', 'cc', 'tv', 'fm', 'sh', 'ly', 'nu', 'ws', 'ac', 'uk', 'de', 'fr', 'nl', 'it',
+  'es', 'se', 'no', 'fi', 'dk', 'be', 'ch', 'at', 'pl', 'cz', 'jp', 'cn', 'hk', 'sg', 'in', 'au',
+  'nz', 'ca', 'br', 'mx', 'za', 'kr', 'tw', 'id', 'my', 'th', 'vn', 'ph', 'tr', 'il', 'ae', 'sa', 'eg',
+  // 此前专门补齐的（Porkbun 未收录）
+  'al', 'im', 'gg', 'je', 'to', 'cx',
+]
+
+/** 后缀 → Gandi 页面路径（路径即后缀本身，保留映射便于将来处理特例） */
+function gandiPath(tld: string): string {
+  return tld
 }
 
 const MONEY = String.raw`\$\s?[\d,]+(?:\.\d{2})?`
@@ -147,13 +167,13 @@ export class GandiTldSource implements TldPriceSourceAdapter {
 
   lastErrors: { tld: string; message: string }[] = []
 
-  async fetchAll(options: { signal?: AbortSignal; timeoutMs?: number; tlds?: string[] } = {}): Promise<TldPrice[]> {
-    const tlds = options.tlds?.filter(t => GANDI_PATHS[t]) ?? Object.keys(GANDI_PATHS)
+  async fetchAll(options: { signal?: AbortSignal; timeoutMs?: number; tlds?: string[]; delayMs?: number } = {}): Promise<TldPrice[]> {
+    const tlds = options.tlds ?? GANDI_TLDS
     const out: TldPrice[] = []
     this.lastErrors = []
 
     for (const tld of tlds) {
-      const path = GANDI_PATHS[tld]
+      const path = gandiPath(tld)
       if (!path) continue
 
       const controller = new AbortController()
@@ -168,22 +188,29 @@ export class GandiTldSource implements TldPriceSourceAdapter {
         })
         if (!res.ok) {
           this.lastErrors.push({ tld, message: `HTTP ${res.status}` })
-          continue
+        } else {
+          const price = parseGandiPage(await res.text(), tld)
+          if (price) out.push(price)
+          else this.lastErrors.push({ tld, message: '页面中未找到 Registration 价格' })
         }
-        const price = parseGandiPage(await res.text(), tld)
-        if (price) out.push(price)
-        else this.lastErrors.push({ tld, message: '页面中未找到 Registration 价格' })
       } catch (error) {
         this.lastErrors.push({ tld, message: error instanceof Error ? error.message : '抓取失败' })
       } finally {
         clearTimeout(timer)
         options.signal?.removeEventListener('abort', onAbort)
       }
+
+      // 逐后缀抓取，请求数等于后缀数。加一个小间隔，
+      // 避免对 Gandi 造成不必要的并发压力。
+      const delay = options.delayMs ?? 200
+      if (delay > 0) await new Promise(r => setTimeout(r, delay))
     }
 
+    // 全部失败说明是数据源级故障（被拦截、改版、网络不通），
+    // 抛错以便上层保留旧数据并告警，而不是把已有数据清空
     if (out.length === 0 && this.lastErrors.length > 0) {
-      const detail = this.lastErrors.map(e => `.${e.tld}: ${e.message}`).join('；')
-      throw new Error(`Gandi 全部后缀抓取失败（${detail}）`)
+      const detail = this.lastErrors.slice(0, 3).map(e => `.${e.tld}: ${e.message}`).join('；')
+      throw new Error(`Gandi 全部后缀抓取失败（${detail}${this.lastErrors.length > 3 ? ` 等 ${this.lastErrors.length} 项` : ''}）`)
     }
 
     return out
