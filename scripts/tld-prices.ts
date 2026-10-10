@@ -17,6 +17,8 @@
 import { TldPriceStore } from '../src/lib/pricing/tld-store'
 import { refreshTldSources, refreshStaleTldSources, compareTld } from '../src/lib/pricing/tld-refresh'
 import { buildTldSources } from '../src/lib/pricing/tld-registry'
+import { GandiTldSource } from '../src/lib/pricing/gandi-tld'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 const DB_PATH = process.env.TLD_DB_PATH ?? '.tld-prices.db'
 const TTL_MS = Number.parseInt(process.env.TLD_TTL_MS ?? '', 10) || undefined
@@ -89,6 +91,42 @@ async function main() {
         break
       }
 
+      case 'gandi-scan': {
+        // 从 Gandi 的 sitemap 取出全部后缀页，逐个探测哪些有价格，
+        // 用于更新 gandi-tld.ts 中的 GANDI_TLDS 清单。
+        console.log('拉取 Gandi sitemap…')
+        const smRes = await fetch('https://www.gandi.net/sitemap_en-US.xml', {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; whois-tld-compare/1.0)' },
+        })
+        if (!smRes.ok) throw new Error(`sitemap 请求失败：HTTP ${smRes.status}`)
+        const sm = await smRes.text()
+        const all = [...sm.matchAll(/<loc>([^<]*\/domain\/tld\/[^<]+)<\/loc>/g)]
+          .map(m => decodeURIComponent(m[1].split('/domain/tld/')[1].replace(/\/$/, '')))
+        const uniq = [...new Set(all)]
+        console.log(`sitemap 列出 ${uniq.length} 个后缀页，开始探测（约需数分钟）…`)
+
+        const src2 = new GandiTldSource()
+        const started2 = Date.now()
+        const found = await src2.fetchAll({ tlds: uniq, concurrency: 4, delayMs: 60 })
+        const tlds = found.map(p => p.tld).sort()
+
+        console.log(`\n探测完成：${tlds.length}/${uniq.length} 个后缀有价格，` +
+          `耗时 ${((Date.now() - started2) / 1000 / 60).toFixed(1)} 分钟`)
+        console.log(`失败 ${src2.lastErrors.length} 项`)
+
+        const target = 'src/lib/pricing/gandi-tld.ts'
+        const content = readFileSync(target, 'utf8')
+        const lines: string[] = []
+        for (let i = 0; i < tlds.length; i += 12) {
+          lines.push('  ' + tlds.slice(i, i + 12).map(t => `'${t}'`).join(', ') + ',')
+        }
+        const literal = '[\n' + lines.join('\n') + '\n]'
+        const re = /const GANDI_TLDS: string\[\] = \[[\s\S]*?\n\]/
+        if (!re.test(content)) throw new Error('未能在 gandi-tld.ts 中定位 GANDI_TLDS，请手动更新')
+        writeFileSync(target, content.replace(re, `const GANDI_TLDS: string[] = ${literal}`), 'utf8')
+        console.log(`已更新 ${target}`)
+        break
+      }
       case 'stats': {
         const s = store.stats()
         console.log(`后缀数  ：${s.tlds}`)
@@ -118,6 +156,7 @@ async function main() {
   compare <域名|后缀...>   后缀比价，如 compare feng.cx / compare cx com io
   stats                    缓存统计
   sources                  数据源新鲜度
+  gandi-scan               重新探测 Gandi 全部后缀并更新清单（数分钟）
 
 环境变量：
   TLD_DB_PATH   数据库路径（默认 .tld-prices.db）

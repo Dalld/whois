@@ -32,24 +32,90 @@ const UA =
 const TIMEOUT_MS = 20_000
 
 /**
- * 已知 Gandi 有售的后缀。
+ * 已知 Gandi 有售的后缀（863 个）。
  *
- * 实测 69 个常见后缀中 68 个可解析出价格（`.ru` 无价）。
- * 这个清单是**逐后缀抓取**的抓取范围：每个后缀一次请求，
- * 因此不能无限扩张——每次刷新会发 68 个请求，
- * 保守加 200ms 间隔以避免给对方造成压力。
+ * 来源：Gandi 的 sitemap（`/sitemap_en-US.xml`）列出全部 996 个
+ * `/domain/tld/{后缀}` 页面地址，全量扫描后 863 个能解析出价格
+ * （其余是 Gandi 实际不售的后缀，如 `.ads` `.af` `.москва`）。
  *
- * 需要增删后缀时直接改这里；不在此清单中的后缀不会抓取。
+ * 清单在此硬编码而非每次抓 sitemap：
+ * 一是刷新时少一次请求，二是清单变化应当是可审查的改动，
+ * 而不是某天悄悄变了导致抓取范围漂移。
+ * 需要更新时用 `scripts/tld-prices.ts gandi-scan` 重新生成。
  */
 const GANDI_TLDS: string[] = [
-  // 通用
-  'com', 'net', 'org', 'info', 'biz', 'xyz', 'online', 'site', 'store', 'tech', 'dev', 'app', 'ai',
-  // 常见 ccTLD / 国别
-  'io', 'co', 'me', 'cc', 'tv', 'fm', 'sh', 'ly', 'nu', 'ws', 'ac', 'uk', 'de', 'fr', 'nl', 'it',
-  'es', 'se', 'no', 'fi', 'dk', 'be', 'ch', 'at', 'pl', 'cz', 'jp', 'cn', 'hk', 'sg', 'in', 'au',
-  'nz', 'ca', 'br', 'mx', 'za', 'kr', 'tw', 'id', 'my', 'th', 'vn', 'ph', 'tr', 'il', 'ae', 'sa', 'eg',
-  // 此前专门补齐的（Porkbun 未收录）
-  'al', 'im', 'gg', 'je', 'to', 'cx',
+  'abogado', 'ac', 'academy', 'accountant', 'accountants', 'actor', 'ad', 'adult', 'ae', 'ae.org', 'aero', 'aeroport.fr',
+  'africa', 'ag', 'agency', 'ai', 'airforce', 'al', 'alsace', 'am', 'amsterdam', 'apartments', 'app', 'aq',
+  'ar', 'archi', 'army', 'art', 'as', 'asia', 'associates', 'at', 'attorney', 'au', 'auction', 'audio',
+  'auto', 'autos', 'avocat.fr', 'ax', 'az', 'ba', 'baby', 'band', 'bank', 'bar', 'barcelona', 'bargains',
+  'basketball', 'bayern', 'bd', 'be', 'beauty', 'beer', 'berlin', 'best', 'bet', 'bf', 'bg', 'bh',
+  'bi', 'bible', 'bid', 'bike', 'bingo', 'bio', 'biz', 'bj', 'black', 'blackfriday', 'blog', 'blue',
+  'bm', 'bn', 'bo', 'boats', 'bond', 'boo', 'boston', 'bot', 'boutique', 'br', 'br.com', 'broker',
+  'brussels', 'bs', 'bt', 'build', 'builders', 'business', 'buzz', 'bw', 'by', 'bz', 'bzh', 'ca',
+  'cab', 'cafe', 'cam', 'camera', 'camp', 'capetown', 'capital', 'car', 'cards', 'care', 'career', 'careers',
+  'cars', 'casa', 'case', 'cash', 'casino', 'cat', 'catering', 'cc', 'center', 'ceo', 'cf', 'cfd',
+  'cg', 'ch', 'chambagri.fr', 'channel', 'charity', 'chat', 'cheap', 'chirurgiens-dentistes.fr', 'christmas', 'church', 'ci', 'city',
+  'ck', 'cl', 'claims', 'cleaning', 'click', 'clinic', 'clothing', 'cloud', 'club', 'cm', 'cn', 'cn.com',
+  'co', 'co.com', 'co.jp', 'co.uk', 'coach', 'codes', 'coffee', 'college', 'cologne', 'com', 'com.de', 'community',
+  'company', 'compare', 'computer', 'condos', 'construction', 'consulting', 'contact', 'contractors', 'cooking', 'cool', 'coop', 'corsica',
+  'country', 'coupons', 'courses', 'cr', 'credit', 'creditcard', 'cricket', 'cruises', 'cu', 'cv', 'cw', 'cx',
+  'cy', 'cymru', 'cyou', 'cz', 'dad', 'dance', 'date', 'dating', 'day', 'de', 'de.com', 'deal',
+  'dealer', 'deals', 'degree', 'delivery', 'democrat', 'dental', 'dentist', 'desi', 'design', 'dev', 'diamonds', 'diet',
+  'digital', 'direct', 'directory', 'discount', 'diy', 'dj', 'dk', 'dm', 'do', 'doctor', 'dog', 'domains',
+  'download', 'durban', 'dz', 'earth', 'eat', 'ec', 'eco', 'education', 'ee', 'eg', 'email', 'energy',
+  'engineer', 'engineering', 'enterprises', 'equipment', 'es', 'esq', 'estate', 'et', 'eu', 'eu.com', 'eus', 'events',
+  'exchange', 'expert', 'experts-comptables.fr', 'exposed', 'express', 'fail', 'faith', 'family', 'fan', 'fans', 'farm', 'fashion',
+  'fast', 'feedback', 'fi', 'film', 'finance', 'financial', 'fish', 'fishing', 'fit', 'fitness', 'fj', 'flights',
+  'florist', 'flowers', 'fly', 'fm', 'fo', 'foo', 'food', 'football', 'forex', 'forsale', 'forum', 'foundation',
+  'fr', 'free', 'frl', 'fun', 'fund', 'furniture', 'futbol', 'fyi', 'ga', 'gal', 'gallery', 'game',
+  'games', 'garden', 'gay', 'gb.net', 'gd', 'gdn', 'ge', 'gent', 'geometre-expert.fr', 'gf', 'gg', 'gh',
+  'gi', 'gift', 'gifts', 'gives', 'giving', 'gl', 'glass', 'global', 'gm', 'gmbh', 'gn', 'gold',
+  'golf', 'gp', 'gq', 'gr', 'gr.com', 'graphics', 'gratis', 'green', 'gripe', 'group', 'gs', 'gt',
+  'guide', 'guitars', 'guru', 'gw', 'gy', 'hair', 'hamburg', 'haus', 'health', 'healthcare', 'help', 'here',
+  'hiphop', 'hiv', 'hk', 'hm', 'hn', 'hockey', 'holdings', 'holiday', 'homes', 'horse', 'hospital', 'host',
+  'hosting', 'hot', 'house', 'how', 'hr', 'ht', 'hu', 'hu.net', 'icu', 'id', 'ie', 'il',
+  'im', 'immo', 'immobilien', 'in', 'in.net', 'inc', 'industries', 'info', 'ing', 'ink', 'institute', 'insurance',
+  'insure', 'international', 'investments', 'io', 'iq', 'ir', 'irish', 'is', 'ist', 'istanbul', 'it', 'je',
+  'jetzt', 'jewelry', 'jm', 'jo', 'jobs', 'joburg', 'jp', 'jp.net', 'jpn.com', 'juegos', 'kaufen', 'ke',
+  'kg', 'kh', 'ki', 'kids', 'kim', 'kitchen', 'kiwi', 'kn', 'koeln', 'kr', 'kw', 'ky',
+  'kyoto', 'kz', 'la', 'land', 'lat', 'latino', 'law', 'lawyer', 'lb', 'lc', 'lease', 'legal',
+  'lgbt', 'li', 'life', 'lifestyle', 'lighting', 'limited', 'limo', 'link', 'live', 'living', 'lk', 'llc',
+  'loan', 'loans', 'locker', 'lol', 'london', 'love', 'lr', 'ls', 'lt', 'ltd', 'ltda', 'lu',
+  'luxe', 'luxury', 'lv', 'ly', 'ma', 'madrid', 'maison', 'makeup', 'management', 'market', 'marketing', 'markets',
+  'mba', 'mc', 'md', 'me', 'me.uk', 'med', 'medecin.fr', 'media', 'melbourne', 'meme', 'memorial', 'men',
+  'menu', 'mg', 'miami', 'mk', 'ml', 'mm', 'mn', 'mo', 'mobi', 'mobile', 'moda', 'moe',
+  'moi', 'mom', 'money', 'monster', 'mortgage', 'motorcycles', 'mov', 'movie', 'mp', 'mq', 'mr', 'ms',
+  'mt', 'mu', 'museum', 'music', 'mw', 'mx', 'my', 'mz', 'na', 'nagoya', 'name', 'navy',
+  'nc', 'ne', 'net', 'network', 'new', 'news', 'nexus', 'nf', 'ng', 'ngo', 'ni', 'ninja',
+  'nl', 'no', 'notaires.fr', 'now', 'np', 'nr', 'nrw', 'nu', 'nyc', 'nz', 'observer', 'okinawa',
+  'om', 'one', 'ong', 'onl', 'online', 'ooo', 'org', 'org.uk', 'organic', 'osaka', 'pa', 'page',
+  'paris', 'partners', 'parts', 'party', 'pe', 'pet', 'pf', 'pg', 'ph', 'pharmacien.fr', 'phd', 'phone',
+  'photo', 'photography', 'photos', 'pics', 'pictures', 'pink', 'pizza', 'pk', 'pl', 'place', 'plumbing', 'plus',
+  'pm', 'pn', 'poker', 'porn', 'port.fr', 'pr', 'press', 'pro', 'productions', 'prof', 'promo', 'properties',
+  'property', 'protection', 'ps', 'pt', 'pub', 'pw', 'py', 'qa', 'qpon', 'quebec', 'quest', 'racing',
+  'radio', 'radio.am', 'radio.fm', 're', 'realestate', 'realty', 'recipes', 'red', 'rehab', 'reise', 'reisen', 'reit',
+  'rent', 'rentals', 'repair', 'report', 'republican', 'rest', 'restaurant', 'review', 'reviews', 'rich', 'rio', 'rip',
+  'ro', 'rocks', 'rodeo', 'rs', 'rsvp', 'rugby', 'ruhr', 'run', 'rw', 'ryukyu', 'sa', 'sa.com',
+  'saarland', 'sale', 'salon', 'sarl', 'sb', 'sbs', 'sc', 'school', 'schule', 'science', 'scot', 'sd',
+  'se', 'se.net', 'security', 'select', 'services', 'sex', 'sexy', 'sg', 'sh', 'shiksha', 'shoes', 'shop',
+  'shopping', 'show', 'si', 'singles', 'site', 'sk', 'ski', 'skin', 'sl', 'sm', 'sn', 'so',
+  'soccer', 'social', 'software', 'solar', 'solutions', 'soy', 'spa', 'space', 'sport', 'spot', 'sr', 'srl',
+  'st', 'storage', 'store', 'stream', 'studio', 'study', 'style', 'sucks', 'supplies', 'supply', 'support', 'surf',
+  'surgery', 'sv', 'swiss', 'sx', 'sy', 'sydney', 'systems', 'taipei', 'talk', 'tattoo', 'tax', 'taxi',
+  'tc', 'td', 'team', 'tech', 'technology', 'tel', 'tennis', 'tf', 'tg', 'th', 'theater', 'theatre',
+  'tickets', 'tienda', 'tips', 'tires', 'tirol', 'tj', 'tk', 'tl', 'tm', 'tn', 'to', 'today',
+  'tokyo', 'tools', 'top', 'tours', 'town', 'toys', 'tr', 'trade', 'trading', 'training', 'travel', 'tt',
+  'tube', 'tv', 'tw', 'tz', 'ua', 'ug', 'uk', 'uk.com', 'uk.net', 'university', 'uno', 'us',
+  'us.com', 'us.org', 'uy', 'uz', 'vacations', 'vana', 'vc', 've', 'vegas', 'ventures', 'vet', 'veterinaire.fr',
+  'vg', 'vi', 'viajes', 'video', 'villas', 'vin', 'vip', 'vision', 'vlaanderen', 'vn', 'vodka', 'vote',
+  'voting', 'voto', 'voyage', 'vu', 'wales', 'wang', 'watch', 'watches', 'webcam', 'website', 'wedding', 'wf',
+  'whoswho', 'wien', 'wiki', 'win', 'wine', 'work', 'works', 'world', 'ws', 'wtf', 'xxx', 'xyz',
+  'yachts', 'ye', 'yoga', 'yokohama', 'you', 'yt', 'za', 'za.com', 'zip', 'zm', 'zone', 'zuerich',
+  'zw', 'ελ', 'ευ', 'бг', 'бел', 'ею', 'онлайн', 'орг', 'сайт', 'コム', 'みんな', 'ישראל',
+  'קום', 'البحرين', 'بارت', 'بازار', 'بھارت', 'ڀارت', 'شبكة', 'भारत', 'भारतम्', 'भारोत', 'संगठन', 'ভারত',
+  'ভাৰত', 'ਭਾਰਤ', 'ભારત', 'ଭାରତ', 'இந்தியா', 'భారత్', 'ಭಾರತ', 'ഭാരതം', '八卦', '餐厅', '公司', '购物',
+  '机构', '健康', '닷넷', '닷컴', '企业', '商标', '商城', '商店', '世界', '台灣', '网店', '网络',
+  '网站', '网址', '我爱你', '香港', '移动', '游戏', '娱乐', '在线', '招聘', '中国', '中文网',
 ]
 
 /** 后缀 → Gandi 页面路径（路径即后缀本身，保留映射便于将来处理特例） */
@@ -157,8 +223,18 @@ export function parseGandiPage(html: string, tld: string, fetchedAt = new Date()
 /**
  * 逐后缀抓取 Gandi。
  *
- * 与 Netim 同样的失败处理原则：单后缀失败跳过，
- * 但全部失败时抛错，避免把「被拦截」伪装成「无报价」。
+ * ## 为什么要并发
+ *
+ * 清单有 863 个后缀。串行抓取（每次一个请求 + 间隔）实测需 **16.6 分钟**，
+ * 作为定时任务太慢。改为固定并发度抓取后降到约 1 分钟。
+ *
+ * 并发度取 4：既明显快于串行，又不会给对方造成突发压力。
+ * 注意这是**对单个站点的礼貌抓取**，不是压测——不要贸然调高。
+ *
+ * ## 失败处理
+ *
+ * 单后缀失败跳过并记入 `lastErrors`；但**全部**失败时抛错，
+ * 避免把「被拦截」伪装成「无报价」。
  */
 export class GandiTldSource implements TldPriceSourceAdapter {
   readonly id = 'gandi'
@@ -167,50 +243,67 @@ export class GandiTldSource implements TldPriceSourceAdapter {
 
   lastErrors: { tld: string; message: string }[] = []
 
-  async fetchAll(options: { signal?: AbortSignal; timeoutMs?: number; tlds?: string[]; delayMs?: number } = {}): Promise<TldPrice[]> {
+  async fetchAll(
+    options: { signal?: AbortSignal; timeoutMs?: number; tlds?: string[]; delayMs?: number; concurrency?: number } = {},
+  ): Promise<TldPrice[]> {
     const tlds = options.tlds ?? GANDI_TLDS
+    const { timeoutMs = TIMEOUT_MS, delayMs = 60, concurrency = 4 } = options
+
     const out: TldPrice[] = []
+    const errors: { tld: string; message: string }[] = []
     this.lastErrors = []
 
-    for (const tld of tlds) {
+    const fetchOne = async (tld: string): Promise<TldPrice | null> => {
       const path = gandiPath(tld)
-      if (!path) continue
+      if (!path) return null
 
       const controller = new AbortController()
       const onAbort = () => controller.abort()
       options.signal?.addEventListener('abort', onAbort, { once: true })
-      const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? TIMEOUT_MS)
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
 
       try {
-        const res = await fetch(`https://www.gandi.net/en-US/domain/tld/${path}`, {
+        const res = await fetch(`https://www.gandi.net/en-US/domain/tld/${encodeURIComponent(path)}`, {
           headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
           signal: controller.signal,
         })
         if (!res.ok) {
-          this.lastErrors.push({ tld, message: `HTTP ${res.status}` })
-        } else {
-          const price = parseGandiPage(await res.text(), tld)
-          if (price) out.push(price)
-          else this.lastErrors.push({ tld, message: '页面中未找到 Registration 价格' })
+          errors.push({ tld, message: `HTTP ${res.status}` })
+          return null
         }
+        const price = parseGandiPage(await res.text(), tld)
+        if (!price) errors.push({ tld, message: '页面中未找到 Registration 价格' })
+        return price
       } catch (error) {
-        this.lastErrors.push({ tld, message: error instanceof Error ? error.message : '抓取失败' })
+        errors.push({ tld, message: error instanceof Error ? error.message : '抓取失败' })
+        return null
       } finally {
         clearTimeout(timer)
         options.signal?.removeEventListener('abort', onAbort)
+        // 每个请求后小睡，与并发度共同控制速率
+        if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs))
       }
-
-      // 逐后缀抓取，请求数等于后缀数。加一个小间隔，
-      // 避免对 Gandi 造成不必要的并发压力。
-      const delay = options.delayMs ?? 200
-      if (delay > 0) await new Promise(r => setTimeout(r, delay))
     }
+
+    // 固定并发度的 worker 池：所有 worker 共享同一个游标
+    let cursor = 0
+    const workers = Array.from({ length: Math.max(1, Math.min(concurrency, tlds.length)) }, async () => {
+      while (cursor < tlds.length) {
+        if (options.signal?.aborted) return
+        const tld = tlds[cursor++]
+        const price = await fetchOne(tld)
+        if (price) out.push(price)
+      }
+    })
+    await Promise.all(workers)
+
+    this.lastErrors = errors
 
     // 全部失败说明是数据源级故障（被拦截、改版、网络不通），
     // 抛错以便上层保留旧数据并告警，而不是把已有数据清空
-    if (out.length === 0 && this.lastErrors.length > 0) {
-      const detail = this.lastErrors.slice(0, 3).map(e => `.${e.tld}: ${e.message}`).join('；')
-      throw new Error(`Gandi 全部后缀抓取失败（${detail}${this.lastErrors.length > 3 ? ` 等 ${this.lastErrors.length} 项` : ''}）`)
+    if (out.length === 0 && errors.length > 0) {
+      const detail = errors.slice(0, 3).map(e => `.${e.tld}: ${e.message}`).join('；')
+      throw new Error(`Gandi 全部后缀抓取失败（${detail}${errors.length > 3 ? ` 等 ${errors.length} 项` : ''}）`)
     }
 
     return out
